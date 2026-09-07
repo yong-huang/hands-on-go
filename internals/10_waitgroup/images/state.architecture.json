@@ -1,0 +1,116 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "WaitGroup 的 state 字：一个 64 位字装下 counter 与 waiters",
+    "output": "images/state.html",
+    "quality_profile": "showcase",
+    "locale": "zh-CN"
+  },
+  "components": [
+    {
+      "id": "state_u64",
+      "type": "backend",
+      "label": "state atomic.Uint64",
+      "sublabel": "8B · 一次原子 Load 读全量",
+      "tag": "布局十余年未变",
+      "pos": [400, 140],
+      "size": [250, 84]
+    },
+    {
+      "id": "sema",
+      "type": "messagebus",
+      "label": "sema uint32",
+      "sublabel": "4B · 睡眠与唤醒的信号量",
+      "tag": "Semacquire / Semrelease",
+      "pos": [790, 140],
+      "size": [230, 84]
+    },
+    {
+      "id": "counter",
+      "type": "database",
+      "label": "高 32 位：counter",
+      "sublabel": "还有多少 Add 增量未 Done",
+      "tag": "int32(state >> 32)",
+      "pos": [200, 400],
+      "size": [230, 84]
+    },
+    {
+      "id": "waiters",
+      "type": "database",
+      "label": "低 32 位：waiters",
+      "sublabel": "阻塞在 Wait() 上的人数",
+      "tag": "int32(uint32(state))",
+      "pos": [640, 400],
+      "size": [230, 84]
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "sync.WaitGroup（noCopy 0B + state 8B + sema 4B）",
+      "wraps": ["state_u64", "sema"],
+      "pad": 18
+    },
+    {
+      "kind": "region",
+      "label": "解码：两个计数挤进一个字",
+      "wraps": ["counter", "waiters"],
+      "pad": 18
+    }
+  ],
+  "connections": [
+    {
+      "from": "state_u64",
+      "to": "counter",
+      "label": "右移 32 位解码",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "from": "state_u64",
+      "to": "waiters",
+      "label": "取低 32 位解码",
+      "variant": "emphasis",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "from": "waiters",
+      "to": "sema",
+      "label": "睡在 sema 上等归零",
+      "variant": "dashed",
+      "fromSide": "top",
+      "toSide": "bottom"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "谁动哪个计数（实测）",
+      "items": [
+        "Add/Done 只碰 counter：Add(2)→2、Add(1)→3、Done×4→0",
+        "Wait 只碰 waiters：实测 counter=1 时 waiters=1",
+        "counter 归零那刻 sema 逐个唤醒，waiters 回 0"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "为什么打包进一个字",
+      "items": [
+        "Add 与 Wait 各改各的半边，互不冲突",
+        "任何读都是一次原子 Load，锁都不需要",
+        "Done 乱序安全、Wait 可跨 goroutine 调用"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "如何验证",
+      "items": [
+        "go run main.go 第 1 节逐操作打印 counter/waiters",
+        "第 2 节：Wait 期间 waiters=1，Done 后 0/0",
+        "读取用 (*atomic.Uint64)(unsafe.Pointer(wg)).Load()，只读快照"
+      ]
+    }
+  ]
+}

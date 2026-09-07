@@ -1,0 +1,31 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "ConnPool：空闲队列 + 信号量限流",
+    "locale": "zh-CN",
+    "quality_profile": "showcase",
+    "viewBox": [1280, 660]
+  },
+  "components": [
+    { "id": "callers", "type": "external", "label": "调用方 goroutines", "sublabel": "Get() / Put()", "pos": [60, 288], "size": [170, 84] },
+    { "id": "idle", "type": "messagebus", "label": "idle chan *conn", "sublabel": "空闲队列（带缓冲）", "tag": "idleTimeout=3s", "pos": [420, 288], "size": [190, 84] },
+    { "id": "limiter", "type": "backend", "label": "mu + openCount", "sublabel": "maxOpen=5 · 超限返回 error", "pos": [420, 80], "size": [190, 84] },
+    { "id": "factory", "type": "external", "label": "factory()", "sublabel": "新建连接", "pos": [740, 80], "size": [160, 84] },
+    { "id": "evict", "type": "security", "label": "Discard", "sublabel": "超时 / 坏连接丢弃", "pos": [740, 288], "size": [160, 84] }
+  ],
+  "boundaries": [
+    { "kind": "region", "label": "ConnPool", "wraps": ["idle", "limiter", "factory", "evict"], "pad": 24 }
+  ],
+  "connections": [
+    { "id": "get-idle", "from": "idle", "to": "callers", "label": "Get() 取空闲", "variant": "emphasis", "fromSide": "left", "toSide": "right" },
+    { "id": "put-idle", "from": "callers", "to": "idle", "label": "Put() 归还", "fromSide": "right", "toSide": "left", "labelDy": 26 },
+    { "id": "ask-quota", "from": "callers", "to": "limiter", "label": "无空闲 → 建连", "fromSide": "top", "toSide": "bottom" },
+    { "id": "quota-ok", "from": "limiter", "to": "factory", "label": "配额内放行", "fromSide": "right", "toSide": "left" },
+    { "id": "evict-idle", "from": "idle", "to": "evict", "label": "超时/池满丢弃", "variant": "dashed", "fromSide": "right", "toSide": "left" }
+  ],
+  "cards": [
+    { "dot": "cyan", "title": "一条主路径", "items": ["Get 优先 select+default 非阻塞取 idle", "Put 归还入队，channel 满则丢弃并 openCount--"] },
+    { "dot": "amber", "title": "实测（go run conn_pool.go）", "items": ["取满 5 个后再 Get：max open connections reached", "空闲超 3s 的连接在下一次 Get 时被驱逐重建"] }
+  ]
+}

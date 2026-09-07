@@ -1,0 +1,153 @@
+{
+  "schema_version": 1,
+  "diagram_type": "lifecycle",
+  "meta": {
+    "title": "hchan 环形队列状态机：sendx 填、recvx 取、满了阻塞、回绕复用",
+    "output": "images/channel_ring.html",
+    "quality_profile": "showcase",
+    "locale": "zh-CN",
+    "viewBox": [
+      1000,
+      566
+    ]
+  },
+  "lanes": [
+    {
+      "id": "main",
+      "label": "cap=4：环形队列的一生"
+    },
+    {
+      "id": "ub",
+      "label": "cap=0：无缓冲旁支"
+    }
+  ],
+  "states": [
+    {
+      "id": "empty",
+      "type": "start",
+      "label": "空环",
+      "sublabel": "qcount=0 · sendx=0 · recvx=0",
+      "lane": "main",
+      "col": 0,
+      "step": "01",
+      "tag": "make(chan int, 4)"
+    },
+    {
+      "id": "filling",
+      "type": "active",
+      "label": "填充",
+      "sublabel": "send 10/20/30 → qcount=3",
+      "lane": "main",
+      "col": 1,
+      "step": "02"
+    },
+    {
+      "id": "full",
+      "type": "waiting",
+      "label": "队满 · 发送阻塞",
+      "sublabel": "send(40) 后 qcount=4/4",
+      "lane": "main",
+      "col": 2,
+      "tag": "send(50)：blocked++"
+    },
+    {
+      "id": "draining",
+      "type": "active",
+      "label": "接收腾槽",
+      "sublabel": "recv ×2 → qcount=2 · recvx=2",
+      "lane": "main",
+      "col": 3,
+      "step": "03"
+    },
+    {
+      "id": "wrap",
+      "type": "active",
+      "label": "回绕复用",
+      "sublabel": "send 500/600 → sendx=6",
+      "lane": "main",
+      "col": 4,
+      "tag": "sendx & (cap-1) 落槽 0/1"
+    },
+    {
+      "id": "closed_read",
+      "type": "success",
+      "label": "close 后读空",
+      "sublabel": "recv 读光残留 → qcount=0",
+      "lane": "ub",
+      "col": 2,
+      "tag": "再收 ok=false · 再发 panic"
+    },
+    {
+      "id": "ub_direct",
+      "type": "waiting",
+      "label": "无缓冲：阻塞 → 交接",
+      "sublabel": "send(42) blocked++ → recv 得 42",
+      "lane": "ub",
+      "col": 0,
+      "tag": "cap=0 无环 · 不占环直接交接",
+      "width": 150
+    }
+  ],
+  "transitions": [
+    {
+      "id": "t_fill",
+      "from": "empty",
+      "to": "filling",
+      "label": "send ×3：qcount 0→3",
+      "labelDy": -25
+    },
+    {
+      "id": "t_full",
+      "from": "filling",
+      "to": "full",
+      "label": "send(40)：写满槽 3",
+      "labelDy": 55
+    },
+    {
+      "id": "t_drain",
+      "from": "full",
+      "to": "draining",
+      "label": "recv ×2：qcount 4→2 · recvx→2",
+      "labelDy": 55
+    },
+    {
+      "id": "t_wrap",
+      "from": "draining",
+      "to": "wrap",
+      "label": "send ×2：sendx 4→6",
+      "labelDy": 55
+    },
+    {
+      "id": "t_close",
+      "from": "wrap",
+      "to": "closed_read",
+      "label": "close → 先读光残留",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "route": "straight",
+      "labelAt": [
+        710,
+        250
+      ]
+    },
+    {
+      "id": "t_ub",
+      "from": "empty",
+      "to": "ub_direct",
+      "label": "cap=0：没有环",
+      "variant": "dashed",
+      "route": "drop"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "rose",
+      "title": "阻塞、交接与 close",
+      "items": [
+        "环满发送阻塞（快照 blocked=1）；cap=0 无环，收发配对直接交接不占环",
+        "close 后残留数据仍可读：必须先读光，再收才返回零值 ok=false",
+        "close 后再 send 会 panic；演示顺序特意分步执行避免短路"
+      ]
+    }
+  ]
+}

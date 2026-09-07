@@ -1,0 +1,192 @@
+{
+  "schema_version": 1,
+  "diagram_type": "sequence",
+  "meta": {
+    "title": "defer 执行序：注册 A→B→C，return 后 LIFO 收拢 C→B→A",
+    "locale": "zh-CN",
+    "quality_profile": "showcase",
+    "animation": "trace",
+    "views": [
+      {
+        "id": "register",
+        "label": "注册阶段",
+        "focus": [
+          "fn",
+          "dstack"
+        ],
+        "note": "三条 defer 依序进栈，参数在注册那一刻立即求值"
+      },
+      {
+        "id": "unwind",
+        "label": "LIFO 收拢",
+        "focus": [
+          "dstack",
+          "fn",
+          "caller"
+        ],
+        "note": "return 先设返回值，随后栈顶 C 先执行、A 最后"
+      }
+    ],
+    "viewBox": [
+      1085,
+      556
+    ],
+    "column_fit": "spread"
+  },
+  "participants": [
+    {
+      "id": "caller",
+      "type": "external",
+      "label": "调用方",
+      "sublabel": "go run main.go"
+    },
+    {
+      "id": "fn",
+      "type": "backend",
+      "label": "函数 fn()",
+      "sublabel": "defer 注册与执行"
+    },
+    {
+      "id": "dstack",
+      "type": "database",
+      "label": "defer 栈",
+      "sublabel": "LIFO 后进先出"
+    },
+    {
+      "id": "retslot",
+      "type": "database",
+      "label": "返回槽",
+      "sublabel": "命名返回值 ret"
+    }
+  ],
+  "messages": [
+    {
+      "id": "call",
+      "from": "caller",
+      "to": "fn",
+      "y": 175,
+      "label": "调用 fn()",
+      "variant": "default"
+    },
+    {
+      "id": "reg-a",
+      "from": "fn",
+      "to": "dstack",
+      "y": 208,
+      "label": "注册 defer A（参数立即求值）",
+      "variant": "default"
+    },
+    {
+      "id": "reg-b",
+      "from": "fn",
+      "to": "dstack",
+      "y": 240,
+      "label": "注册 defer B",
+      "variant": "default"
+    },
+    {
+      "id": "reg-c",
+      "from": "fn",
+      "to": "dstack",
+      "y": 272,
+      "label": "注册 defer C",
+      "variant": "default"
+    },
+    {
+      "id": "ret-set",
+      "from": "fn",
+      "to": "retslot",
+      "y": 306,
+      "label": "return：返回值先写入返回槽",
+      "variant": "emphasis",
+      "note": "赋值发生在 defer 之前，defer 因此有机会再改一次"
+    },
+    {
+      "id": "run-c",
+      "from": "dstack",
+      "to": "fn",
+      "y": 340,
+      "label": "出栈执行 C（最后注册的先跑）",
+      "variant": "return"
+    },
+    {
+      "id": "run-b",
+      "from": "dstack",
+      "to": "fn",
+      "y": 372,
+      "label": "出栈执行 B",
+      "variant": "return"
+    },
+    {
+      "id": "run-a",
+      "from": "dstack",
+      "to": "fn",
+      "y": 404,
+      "label": "出栈执行 A——此刻可改写命名返回值",
+      "variant": "return"
+    },
+    {
+      "id": "rewrite",
+      "from": "fn",
+      "to": "retslot",
+      "y": 436,
+      "label": "改写返回槽：ret 1 → 2",
+      "variant": "dashed",
+      "note": "实测 func f() (ret int)：return 时 ret=1，defer 里 ret++，调用方拿到 2"
+    },
+    {
+      "id": "real-ret",
+      "from": "fn",
+      "to": "caller",
+      "y": 468,
+      "label": "真正返回（返回值 = defer 处理后的结果）",
+      "variant": "return"
+    }
+  ],
+  "activations": [
+    {
+      "participant": "fn",
+      "from": 175,
+      "to": 472
+    },
+    {
+      "participant": "dstack",
+      "from": 208,
+      "to": 408
+    },
+    {
+      "participant": "retslot",
+      "from": 306,
+      "to": 440
+    }
+  ],
+  "cards": [
+    {
+      "dot": "emerald",
+      "title": "一条主路径",
+      "items": [
+        "注册 A→B→C 依序进栈，函数体结束后才触发出栈",
+        "return 分两半：先设返回值，再跑 defer，最后才真正返回",
+        "demo 实测：登记 1→5，返回打印 执行(5)→执行(1)"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "LIFO 收拢",
+      "items": [
+        "执行顺序 C→B→A 与注册顺序严格相反",
+        "这就是资源\"后开先关\"的根据：先开的资源后释放",
+        "参数在注册时已求值，出栈时用的只是当时的快照"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "命名返回值可被改写",
+      "items": [
+        "return 的赋值发生在 defer 之前，所以 defer 有机会再改一次",
+        "func f() (ret int)：defer 里改 ret 有效，实测 1 → 2",
+        "匿名返回值是已拷出的副本，defer 改局部变量不影响返回值"
+      ]
+    }
+  ]
+}

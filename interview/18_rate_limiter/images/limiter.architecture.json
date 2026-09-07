@@ -1,0 +1,222 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "滑动窗口限流：时间戳日志 + 窗口滑动淘汰 + 计数判定",
+    "locale": "zh-CN",
+    "quality_profile": "showcase",
+    "viewBox": [
+      1160,
+      660
+    ]
+  },
+  "components": [
+    {
+      "id": "request",
+      "type": "external",
+      "label": "HTTP 请求",
+      "sublabel": "GET /api",
+      "pos": [
+        20,
+        110
+      ],
+      "size": [
+        150,
+        72
+      ]
+    },
+    {
+      "id": "extractip",
+      "type": "backend",
+      "label": "extractIP",
+      "sublabel": "XFF > X-Real-Ip > RemoteAddr",
+      "pos": [
+        250,
+        110
+      ],
+      "size": [
+        150,
+        72
+      ]
+    },
+    {
+      "id": "allow",
+      "type": "backend",
+      "label": "Allow() 加锁",
+      "sublabel": "rl.mu.Lock()",
+      "pos": [
+        480,
+        110
+      ],
+      "size": [
+        150,
+        72
+      ]
+    },
+    {
+      "id": "window",
+      "type": "backend",
+      "label": "窗口滑动淘汰",
+      "sublabel": "cutoff = now − 1s",
+      "pos": [
+        710,
+        110
+      ],
+      "size": [
+        150,
+        72
+      ]
+    },
+    {
+      "id": "ts",
+      "type": "database",
+      "label": "requests[ip]",
+      "sublabel": "有序 []time.Time",
+      "tag": "window=1s · max=3",
+      "pos": [
+        710,
+        330
+      ],
+      "size": [
+        150,
+        72
+      ]
+    },
+    {
+      "id": "check",
+      "type": "backend",
+      "label": "计数判定",
+      "sublabel": "len(valid) ≥ 3 ?",
+      "pos": [
+        940,
+        330
+      ],
+      "size": [
+        150,
+        72
+      ]
+    },
+    {
+      "id": "ok",
+      "type": "frontend",
+      "label": "放行 200 OK",
+      "sublabel": "append now → next.ServeHTTP",
+      "pos": [
+        60,
+        520
+      ],
+      "size": [
+        150,
+        72
+      ]
+    },
+    {
+      "id": "reject",
+      "type": "security",
+      "label": "拒绝 429",
+      "sublabel": "不记录时间戳",
+      "pos": [
+        940,
+        520
+      ],
+      "size": [
+        150,
+        72
+      ]
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "RateLimiter — sync.Mutex 临界区",
+      "wraps": [
+        "allow",
+        "window",
+        "ts",
+        "check",
+        "ok",
+        "reject"
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "id": "req-to-ip",
+      "from": "request",
+      "to": "extractip",
+      "label": "进入中间件"
+    },
+    {
+      "id": "ip-to-allow",
+      "from": "extractip",
+      "to": "allow",
+      "label": "client ip"
+    },
+    {
+      "id": "allow-to-window",
+      "from": "allow",
+      "to": "window",
+      "label": "锁内清理过期"
+    },
+    {
+      "id": "window-to-ts",
+      "from": "window",
+      "to": "ts",
+      "label": "淘汰过期 · 写回",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelAt": [
+        785,
+        250
+      ]
+    },
+    {
+      "id": "ts-to-check",
+      "from": "ts",
+      "to": "check",
+      "label": "剩余 valid 计数",
+      "labelAt": [
+        870,
+        300
+      ]
+    },
+    {
+      "id": "check-to-ok",
+      "from": "check",
+      "to": "ok",
+      "label": "未满 · 放行",
+      "variant": "emphasis"
+    },
+    {
+      "id": "check-to-reject",
+      "from": "check",
+      "to": "reject",
+      "label": "已满 3/3 · 拒绝",
+      "variant": "dashed",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelAt": [
+        1015,
+        461
+      ]
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "实测（window=1s, maxRequests=3）",
+      "items": [
+        "Test 1：请求 1–3 返回 200，第 4 个起 429",
+        "Test 3：睡 1s 后旧时间戳全部过期，配额恢复 200"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "临界区很窄",
+      "items": [
+        "map 读写都在 rl.mu.Lock() 之内，被拒请求不记时间戳",
+        "timestamps[:0] 原地复用底层数组，无新分配"
+      ]
+    }
+  ]
+}

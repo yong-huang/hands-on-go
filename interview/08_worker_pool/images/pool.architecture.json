@@ -1,0 +1,181 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "Worker Pool：任务 chan 扇出 → 固定 N worker → 结果 chan 汇合",
+    "locale": "zh-CN",
+    "quality_profile": "showcase",
+    "viewBox": [
+      1280,
+      600
+    ]
+  },
+  "components": [
+    {
+      "id": "producer",
+      "type": "external",
+      "label": "调用方",
+      "sublabel": "pool.Submit(fn)",
+      "pos": [
+        70,
+        300
+      ],
+      "size": [
+        140,
+        70
+      ]
+    },
+    {
+      "id": "tasksq",
+      "type": "messagebus",
+      "label": "tasks chan task",
+      "sublabel": "缓冲 workers×2=10",
+      "tag": "满则 Submit 阻塞（背压）",
+      "pos": [
+        300,
+        300
+      ],
+      "size": [
+        180,
+        84
+      ]
+    },
+    {
+      "id": "w1",
+      "type": "backend",
+      "label": "Worker #1",
+      "sublabel": "for t := range tasks",
+      "pos": [
+        570,
+        115
+      ],
+      "size": [
+        150,
+        66
+      ]
+    },
+    {
+      "id": "w2",
+      "type": "backend",
+      "label": "Worker #2…#4",
+      "sublabel": "固定 goroutine，复用不重建",
+      "pos": [
+        570,
+        300
+      ],
+      "size": [
+        150,
+        66
+      ]
+    },
+    {
+      "id": "w3",
+      "type": "backend",
+      "label": "Worker #5",
+      "sublabel": "并发度 = worker 数 = 5",
+      "pos": [
+        570,
+        485
+      ],
+      "size": [
+        150,
+        66
+      ]
+    },
+    {
+      "id": "resultsc",
+      "type": "messagebus",
+      "label": "results chan result",
+      "sublabel": "缓冲 10 · 扇入汇合",
+      "pos": [
+        830,
+        300
+      ],
+      "size": [
+        180,
+        84
+      ]
+    },
+    {
+      "id": "drain",
+      "type": "backend",
+      "label": "drain goroutine",
+      "sublabel": "收集 err → close(done)",
+      "pos": [
+        1110,
+        300
+      ],
+      "size": [
+        160,
+        70
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "from": "producer",
+      "to": "tasksq",
+      "label": "tasks <- task",
+      "variant": "emphasis"
+    },
+    {
+      "from": "tasksq",
+      "to": "w1",
+      "label": "扇出"
+    },
+    {
+      "from": "tasksq",
+      "to": "w2"
+    },
+    {
+      "from": "tasksq",
+      "to": "w3"
+    },
+    {
+      "from": "w1",
+      "to": "resultsc"
+    },
+    {
+      "from": "w2",
+      "to": "resultsc"
+    },
+    {
+      "from": "w3",
+      "to": "resultsc",
+      "label": "汇合"
+    },
+    {
+      "from": "resultsc",
+      "to": "drain",
+      "label": "range results",
+      "variant": "emphasis",
+      "labelDy": -36
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "扇出 / 汇合",
+      "items": [
+        "5 个 worker goroutine 从同一 tasks chan 消费，同时执行的任务数 ≤ 5",
+        "三个 worker 各自把 result 写回同一 results chan，由 drain goroutine 统一汇合"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "背压",
+      "items": [
+        "tasks 缓冲 workers×2=10：队列满时 Submit 阻塞，生产者被天然限流",
+        "demo：20 个任务、每个睡 50+id×10 ms，总耗时约 601ms，7/14 号任务失败"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "优雅关闭（Wait 内部顺序）",
+      "items": [
+        "taskWg.Wait() 等全部任务完成 → close(tasks) 让 worker 退出 range",
+        "workerWg.Wait() 等 worker 退出 → close(results) → <-done 等 drain 收完错误"
+      ]
+    }
+  ]
+}

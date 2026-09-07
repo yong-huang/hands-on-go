@@ -1,0 +1,148 @@
+{
+  "schema_version": 1,
+  "diagram_type": "dataflow",
+  "meta": {
+    "title": "Bloom Filter：k 个哈希 → 位数组置位与查询判定",
+    "locale": "zh-CN",
+    "quality_profile": "showcase",
+    "viewBox": [
+      1080,
+      640
+    ],
+    "legend": {
+      "mode": "hidden"
+    }
+  },
+  "stages": [
+    {
+      "label": "输入"
+    },
+    {
+      "label": "双重哈希"
+    },
+    {
+      "label": "位数组"
+    },
+    {
+      "label": "查询判定"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "add",
+      "type": "backend",
+      "label": "Add(item)",
+      "sublabel": "添加元素：置位 k 个位置",
+      "stage": 0,
+      "row": 0,
+      "tag": "写入路径"
+    },
+    {
+      "id": "query",
+      "type": "frontend",
+      "label": "MayContain(item)",
+      "sublabel": "查询元素：只读不修改",
+      "stage": 0,
+      "row": 2,
+      "tag": "读取路径"
+    },
+    {
+      "id": "hash",
+      "type": "backend",
+      "label": "hash(item)",
+      "sublabel": "h_i = h1 + i·h2 (mod m)",
+      "stage": 1,
+      "row": 1,
+      "tag": "FNV-1a 双种子",
+      "width": 168
+    },
+    {
+      "id": "bits",
+      "type": "database",
+      "label": "bitArray []uint64",
+      "sublabel": "m = 10000 位（每元素 10 bit）",
+      "stage": 2,
+      "row": 1,
+      "tag": "setBit / getBit",
+      "width": 168
+    },
+    {
+      "id": "all_one",
+      "type": "backend",
+      "label": "k 位全为 1",
+      "sublabel": "可能存在（可能是误报）",
+      "stage": 3,
+      "row": 0,
+      "tag": "假阳性",
+      "width": 168
+    },
+    {
+      "id": "any_zero",
+      "type": "backend",
+      "label": "任一位为 0",
+      "sublabel": "一定不存在（无假阴性）",
+      "stage": 3,
+      "row": 2,
+      "tag": "必然正确",
+      "width": 168
+    }
+  ],
+  "flows": [
+    {
+      "from": "add",
+      "to": "hash",
+      "label": "计算 k 个位置",
+      "classification": "写入前",
+      "variant": "emphasis"
+    },
+    {
+      "from": "query",
+      "to": "hash",
+      "label": "计算 k 个位置",
+      "classification": "查询前",
+      "variant": "default"
+    },
+    {
+      "from": "hash",
+      "to": "bits",
+      "label": "置位 |= 1",
+      "classification": "置位",
+      "variant": "emphasis",
+      "labelDy": 53
+    },
+    {
+      "from": "bits",
+      "to": "all_one",
+      "label": "读到全 1",
+      "classification": "误判率注记：实测 4.32% vs 公式 0.82%",
+      "variant": "dashed"
+    },
+    {
+      "from": "bits",
+      "to": "any_zero",
+      "label": "读到 0 即返回 false",
+      "classification": "提前退出",
+      "variant": "emphasis"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "emerald",
+      "title": "为什么不会漏判",
+      "items": [
+        "Add 过的元素把 k 个位全置 1，位只会从 0 变 1、永不清零",
+        "再次查询时 k 个位必然仍为 1，MayContain 一定返回 true",
+        "代价：别的元素可能把这些位也置 1，造成假阳性"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "实测参数与误判率",
+      "items": [
+        "演示过滤器：n=1000、m=10000 位（每元素 10 bit）、k=7",
+        "大规模测试：插入 10000 元素后实测误判 432/10000 = 4.32%",
+        "公式估计 0.82%——双重哈希相关性使实际误判高于理论值"
+      ]
+    }
+  ]
+}

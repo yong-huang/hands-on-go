@@ -1,0 +1,254 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "闭包捕获 = 引用环境：funcval 指向同一个堆盒子",
+    "output": "images/capture.html",
+    "quality_profile": "showcase",
+    "locale": "zh-CN"
+  },
+  "components": [
+    {
+      "id": "fnval",
+      "type": "backend",
+      "label": "funcval",
+      "sublabel": "{fn 指令指针, env → 捕获变量引用}",
+      "tag": "闭包 = 函数 + 环境",
+      "pos": [
+        565,
+        50
+      ],
+      "size": [
+        260,
+        68
+      ]
+    },
+    {
+      "id": "lg0",
+      "type": "backend",
+      "label": "goroutine 闭包 #0",
+      "sublabel": "go func() { … &i }",
+      "tag": "存下 &i",
+      "pos": [
+        70,
+        250
+      ],
+      "size": [
+        180,
+        62
+      ]
+    },
+    {
+      "id": "lg1",
+      "type": "backend",
+      "label": "goroutine 闭包 #1",
+      "sublabel": "go func() { … &i }",
+      "tag": "存下 &i",
+      "pos": [
+        330,
+        250
+      ],
+      "size": [
+        180,
+        62
+      ]
+    },
+    {
+      "id": "lg2",
+      "type": "backend",
+      "label": "goroutine 闭包 #2…#4",
+      "sublabel": "还有 3 个，全都一样",
+      "tag": "都存 &i",
+      "pos": [
+        590,
+        250
+      ],
+      "size": [
+        180,
+        62
+      ]
+    },
+    {
+      "id": "iheap",
+      "type": "database",
+      "label": "堆上的共享盒子 i",
+      "sublabel": "moved to heap · 唯一地址 1 个",
+      "tag": "读到 [5 5 5 5 5]",
+      "pos": [
+        285,
+        460
+      ],
+      "size": [
+        270,
+        74
+      ]
+    },
+    {
+      "id": "fg0",
+      "type": "backend",
+      "label": "goroutine 闭包（传参）",
+      "sublabel": "go func(j int) { … }(i)",
+      "tag": "j = i 拷贝",
+      "pos": [
+        890,
+        250
+      ],
+      "size": [
+        180,
+        62
+      ]
+    },
+    {
+      "id": "fg1",
+      "type": "backend",
+      "label": "goroutine 闭包（传参）#1…#4",
+      "sublabel": "另外 4 个同理",
+      "tag": "各自拷贝",
+      "pos": [
+        1150,
+        250
+      ],
+      "size": [
+        180,
+        62
+      ]
+    },
+    {
+      "id": "j0",
+      "type": "database",
+      "label": "堆盒子 j（本迭代）",
+      "sublabel": "唯一地址 5 个之一",
+      "tag": "读到 0",
+      "pos": [
+        890,
+        460
+      ],
+      "size": [
+        180,
+        70
+      ]
+    },
+    {
+      "id": "j1",
+      "type": "database",
+      "label": "堆盒子 j（下一迭代）",
+      "sublabel": "另一份独立拷贝",
+      "tag": "读到 1",
+      "pos": [
+        1150,
+        460
+      ],
+      "size": [
+        180,
+        70
+      ]
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "场景一 · 经典坑：i 声明在循环外（共享一个盒子）",
+      "wraps": [
+        "lg0",
+        "lg1",
+        "lg2",
+        "iheap"
+      ],
+      "pad": 18
+    },
+    {
+      "kind": "region",
+      "label": "场景二 · 修复：传参拷贝（每迭代一份 j）",
+      "wraps": [
+        "fg0",
+        "fg1",
+        "j0",
+        "j1"
+      ],
+      "pad": 18
+    }
+  ],
+  "connections": [
+    {
+      "from": "fnval",
+      "to": "lg1",
+      "label": "闭包捕获变量引用"
+    },
+    {
+      "from": "fnval",
+      "to": "fg0",
+      "label": "修复：传参拷贝"
+    },
+    {
+      "from": "lg0",
+      "to": "iheap",
+      "label": "&i → 同一地址"
+    },
+    {
+      "from": "lg1",
+      "to": "iheap",
+      "label": "共享一个盒子",
+      "variant": "emphasis",
+      "labelAt": [
+        420,
+        326
+      ]
+    },
+    {
+      "from": "lg2",
+      "to": "iheap",
+      "label": "…同样 &i"
+    },
+    {
+      "from": "fg0",
+      "to": "j0",
+      "label": "持有自己的 j",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelAt": [
+        980,
+        326
+      ]
+    },
+    {
+      "from": "fg1",
+      "to": "j1",
+      "label": "各持一份，互不相干",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelAt": [
+        1240,
+        326
+      ]
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "实测数据（go run main.go，地址每次运行不同）",
+      "items": [
+        "循环捕获：5 份地址完全相同（唯一 1 个），读到 [5 5 5 5 5]",
+        "传参修复：唯一地址 5 个，读到 [0 1 2 3 4]",
+        "两个闭包捕获同一变量 v：同一盒子 true；外层改 99，闭包读到 99"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "经典坑的机理",
+      "items": [
+        "i 声明在循环外 → 整个循环只有这一个盒子，闭包存的都是 &i",
+        "goroutine 真正执行时 i 已自增到 5，读到的全是终止值",
+        "闭包捕获的是变量引用不是快照；偶见中途值（如 3）正是竞态"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "逃逸与修复",
+      "items": [
+        "闭包可能比栈帧活得久 → 编译器把 i/wg/mu/next 全部 moved to heap",
+        "Go 1.22+ 的 := 循环变量每迭代一份；但声明在循环外仍共享——老代码雷区",
+        "修复三选一：传参、i := i 拷贝、或依赖 Go 1.22+ 新语义"
+      ]
+    }
+  ]
+}

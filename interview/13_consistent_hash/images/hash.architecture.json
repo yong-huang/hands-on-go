@@ -1,0 +1,242 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "一致性哈希环：key 顺时针找第一个节点",
+    "output": "images/hash.html",
+    "quality_profile": "showcase",
+    "locale": "zh-CN",
+    "legend": {
+      "mode": "hidden"
+    }
+  },
+  "components": [
+    {
+      "id": "k1",
+      "type": "external",
+      "label": "key-1",
+      "sublabel": "crc32 = 0x0eecbf7a",
+      "pos": [
+        740,
+        100
+      ],
+      "size": [
+        200,
+        66
+      ]
+    },
+    {
+      "id": "k2",
+      "type": "external",
+      "label": "key-2",
+      "sublabel": "crc32 = 0x97e5eec0",
+      "pos": [
+        430,
+        100
+      ],
+      "size": [
+        200,
+        66
+      ]
+    },
+    {
+      "id": "k42",
+      "type": "external",
+      "label": "key-42",
+      "sublabel": "crc32 = 0xd77c3ed5",
+      "pos": [
+        120,
+        100
+      ],
+      "size": [
+        200,
+        66
+      ]
+    },
+    {
+      "id": "k0",
+      "type": "external",
+      "label": "key-0",
+      "sublabel": "crc32 = 0x79eb8fec",
+      "pos": [
+        1050,
+        100
+      ],
+      "size": [
+        200,
+        66
+      ]
+    },
+    {
+      "id": "arcA",
+      "type": "backend",
+      "label": "节点 A 的弧段",
+      "sublabel": "到虚拟点 A#32 (0x045b2c4d)",
+      "tag": "262 keys",
+      "pos": [
+        110,
+        380
+      ],
+      "size": [
+        220,
+        88
+      ]
+    },
+    {
+      "id": "arcB",
+      "type": "backend",
+      "label": "节点 B 的弧段",
+      "sublabel": "到虚拟点 B#26 (0x089876fb)",
+      "tag": "149 keys",
+      "pos": [
+        420,
+        380
+      ],
+      "size": [
+        220,
+        88
+      ]
+    },
+    {
+      "id": "arcC",
+      "type": "backend",
+      "label": "节点 C 的弧段",
+      "sublabel": "到虚拟点 C#44 (0x0870d734)",
+      "tag": "286 keys",
+      "pos": [
+        730,
+        380
+      ],
+      "size": [
+        220,
+        88
+      ]
+    },
+    {
+      "id": "arcD",
+      "type": "backend",
+      "label": "节点 D 的弧段",
+      "sublabel": "到虚拟点 D#46 (0x7ba98ea1)",
+      "tag": "303 keys",
+      "pos": [
+        1040,
+        380
+      ],
+      "size": [
+        220,
+        88
+      ]
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "哈希环：4 节点 × 50 虚拟点 = 200 个环点，按 hash 升序 = 顺时针",
+      "wraps": [
+        "arcA",
+        "arcB",
+        "arcC",
+        "arcD"
+      ],
+      "pad": 20
+    }
+  ],
+  "connections": [
+    {
+      "from": "k42",
+      "to": "arcA",
+      "label": "首个 ≥：A#10",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelAt": [
+        220,
+        200
+      ]
+    },
+    {
+      "from": "k2",
+      "to": "arcB",
+      "label": "首个 ≥：B#29",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelAt": [
+        530,
+        200
+      ]
+    },
+    {
+      "from": "k1",
+      "to": "arcC",
+      "label": "首个 ≥ key 的环点：C#40",
+      "variant": "emphasis",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelAt": [
+        840,
+        200
+      ]
+    },
+    {
+      "from": "k0",
+      "to": "arcD",
+      "label": "首个 ≥：D#46",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelAt": [
+        1150,
+        200
+      ]
+    },
+    {
+      "from": "arcA",
+      "to": "arcB",
+      "label": "顺时针"
+    },
+    {
+      "from": "arcB",
+      "to": "arcC",
+      "label": "顺时针"
+    },
+    {
+      "from": "arcC",
+      "to": "arcD",
+      "label": "顺时针"
+    },
+    {
+      "from": "arcD",
+      "to": "arcA",
+      "label": "回绕：>2^32-1 回到 0",
+      "fromSide": "bottom",
+      "toSide": "bottom"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "心智模型",
+      "items": [
+        "节点和 key 都做 crc32，落到 [0, 2^32) 同一个环上",
+        "Get：sort.Search 二分找第一个 ≥ hash(key) 的环点，没有则回绕到 0",
+        "每物理节点 50 个虚拟点，图中弧段是 50 段小弧的归并示意"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "最小迁移（实测 1000 keys）",
+      "items": [
+        "3 节点：A 390 / B 181 / C 429，环点 150",
+        "Add D：A 262 / B 149 / C 286 / D 303，仅迁移 303 (30.3%)，取模哈希要迁 ~100%",
+        "Remove A：只有 A 的 262 个 key 顺时针并给邻居，B/C/D 的 key 不动"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "易错点",
+      "items": [
+        "没有虚拟节点时 390/181/429 严重不均——均衡靠虚拟点数量",
+        "二分返回 len(ring) 时必须 idx=0 回绕，漏掉则查不到节点",
+        "Remove 后要重建 ring 切片，否则已删哈希值仍留在环上"
+      ]
+    }
+  ]
+}

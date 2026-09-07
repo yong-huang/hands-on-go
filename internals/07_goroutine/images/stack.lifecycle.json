@@ -1,0 +1,151 @@
+{
+  "schema_version": 1,
+  "diagram_type": "lifecycle",
+  "meta": {
+    "title": "goroutine 栈生命周期：2KB 起步，不够就翻倍",
+    "output": "images/stack.html",
+    "quality_profile": "showcase",
+    "locale": "zh-CN",
+    "viewBox": [
+      1040,
+      600
+    ]
+  },
+  "lanes": [
+    {
+      "id": "main",
+      "label": "栈生命周期主轴"
+    },
+    {
+      "id": "gc",
+      "label": "GC 侧通道"
+    }
+  ],
+  "states": [
+    {
+      "id": "born",
+      "type": "start",
+      "label": "初始栈 ~2KB",
+      "sublabel": "go 语句新建 goroutine",
+      "lane": "main",
+      "col": 0,
+      "step": "01",
+      "tag": "stack.lo/hi 各 2KB"
+    },
+    {
+      "id": "deep",
+      "type": "active",
+      "label": "深递归压 4KB 帧",
+      "sublabel": "每层 [4096]byte 局部数组",
+      "lane": "main",
+      "col": 1,
+      "step": "02",
+      "tag": "256→736→1248→2272 KB"
+    },
+    {
+      "id": "guard",
+      "type": "decision",
+      "label": "SP 越过 stackguard?",
+      "sublabel": "越界则 morestack",
+      "lane": "main",
+      "col": 2,
+      "step": "03",
+      "tag": "morestack"
+    },
+    {
+      "id": "copy",
+      "type": "active",
+      "label": "copystack 翻倍扩容",
+      "sublabel": "2× 新栈 · 拷贝全部旧帧",
+      "lane": "main",
+      "col": 3,
+      "step": "04",
+      "tag": "旧栈整体释放"
+    },
+    {
+      "id": "resume",
+      "type": "success",
+      "label": "新栈继续运行",
+      "sublabel": "SP 重定位 · 用户无感知",
+      "lane": "main",
+      "col": 4,
+      "step": "05",
+      "tag": "全程透明"
+    },
+    {
+      "id": "gcshrink",
+      "type": "neutral",
+      "label": "GC 栈收缩",
+      "sublabel": "栈利用率过低时归还内存",
+      "lane": "gc",
+      "col": 2,
+      "tag": "shrinkstack"
+    }
+  ],
+  "transitions": [
+    {
+      "id": "t-born",
+      "from": "born",
+      "to": "deep"
+    },
+    {
+      "id": "t-deep",
+      "from": "deep",
+      "to": "guard"
+    },
+    {
+      "id": "t-grow",
+      "from": "guard",
+      "to": "copy",
+      "variant": "emphasis"
+    },
+    {
+      "id": "t-copy",
+      "from": "copy",
+      "to": "resume"
+    },
+    {
+      "id": "t-idle",
+      "from": "resume",
+      "to": "gcshrink",
+      "variant": "dashed"
+    },
+    {
+      "id": "t-shrink",
+      "from": "gcshrink",
+      "to": "deep",
+      "variant": "dashed",
+      "route": "bottom-channel",
+      "label": "缩栈后继续运行"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "实测扩容台阶（main.go 第 3 节）",
+      "items": [
+        "depth 0→192：StackInuse 256→736→1248→2272 KB（+480/+512/+1024）",
+        "depth 256/320 平台期 2272 KB：栈已够用，扩容自动停止",
+        "绝对值每次运行略有波动，台阶形状与翻倍节奏不变"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "为什么初始只有 ~2KB",
+      "items": [
+        "系统线程栈固定 MB 级，goroutine 初始仅 ~2KB",
+        "不够用时 runtime 换更大栈，用户零配置零感知",
+        "小栈 + 按需扩 + 各自独立 = 轻松开几十万 goroutine"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "如何验证",
+      "items": [
+        "第 2 节：inner 帧 SP 比 outer 低 → 栈向低地址生长",
+        "第 4 节：1/2/4 个并发深递归 StackInuse 4320/6368/10496 KB，线性叠加",
+        "goid 解析自 runtime.Stack 官方输出（Go 1.26 已封禁 linkname 直读）"
+      ]
+    }
+  ]
+}

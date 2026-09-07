@@ -1,0 +1,131 @@
+{
+  "schema_version": 1,
+  "diagram_type": "sequence",
+  "meta": {
+    "title": "panic 栈展开：defer 链 LIFO 执行，recover 兜底",
+    "output": "images/panic.html",
+    "viewBox": [
+      960,
+      545
+    ],
+    "column_fit": "spread",
+    "animation": "trace",
+    "quality_profile": "showcase",
+    "locale": "zh-CN"
+  },
+  "participants": [
+    {
+      "id": "main",
+      "type": "backend",
+      "label": "main.exp",
+      "sublabel": "业务入口 goroutine"
+    },
+    {
+      "id": "evil",
+      "type": "backend",
+      "label": "evil(depth=0)",
+      "sublabel": "递归最深一层"
+    },
+    {
+      "id": "gopanic",
+      "type": "messagebus",
+      "label": "runtime.gopanic",
+      "sublabel": "panic 引擎·栈展开"
+    },
+    {
+      "id": "guard",
+      "type": "backend",
+      "label": "guard 的 defer",
+      "sublabel": "recover 兜底层"
+    }
+  ],
+  "messages": [
+    {
+      "id": "recurse",
+      "from": "main",
+      "to": "evil",
+      "y": 180,
+      "label": "递归 evil(5)…evil(0) 共 6 层",
+      "variant": "default"
+    },
+    {
+      "id": "panic-start",
+      "from": "evil",
+      "to": "gopanic",
+      "y": 227,
+      "label": "panic(\"boom: 最深一层 panic\")",
+      "variant": "emphasis"
+    },
+    {
+      "id": "unwind-evil",
+      "from": "gopanic",
+      "to": "evil",
+      "y": 274,
+      "label": "逆序执行 evil 层 defer ×6",
+      "variant": "default",
+      "note": "展开路径 1–6：evil（LIFO，后注册先执行）"
+    },
+    {
+      "id": "unwind-guard",
+      "from": "gopanic",
+      "to": "guard",
+      "y": 321,
+      "label": "展开到 guard：先跑 register 的 defer",
+      "variant": "default",
+      "note": "展开路径 7"
+    },
+    {
+      "id": "recover-hit",
+      "from": "guard",
+      "to": "gopanic",
+      "y": 368,
+      "label": "recover() 命中，展开终止",
+      "variant": "emphasis"
+    },
+    {
+      "id": "normal-return",
+      "from": "guard",
+      "to": "main",
+      "y": 415,
+      "label": "guard 正常返回：stack / frames=13 / err 已带回",
+      "variant": "return"
+    },
+    {
+      "id": "no-recover",
+      "from": "gopanic",
+      "to": "main",
+      "y": 460,
+      "label": "对照：无人 recover → 崩到 main.main，打印栈后 exit 2",
+      "variant": "dashed"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "LIFO 规则",
+      "items": [
+        "panic 后当前函数剩余代码不再执行，已注册的 defer 逆序执行",
+        "本实验注册顺序 evil×6 → guard，执行顺序正好倒过来",
+        "defer 顺序 = 资源释放顺序：锁与文件「后开先关」"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "实测数据（go run main.go）",
+      "items": [
+        "展开路径 7 步：evil×6 → guard，recovered=true",
+        "recover 时刻调用栈 13 帧（含 runtime 内部）",
+        "异常值 boom: 最深一层 panic，recover 后 guard 正常返回"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "recover 规则",
+      "items": [
+        "recover 只在 defer 里有效：普通位置调用返回 nil，纯属白干",
+        "无人接住：一路展开到 main.main，打印栈后进程崩溃",
+        "recover 是兜底手段，业务错误优先用 error 返回值"
+      ]
+    }
+  ]
+}

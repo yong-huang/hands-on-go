@@ -1,0 +1,153 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "string 头：字面量在只读数据区，运行时构造在堆/栈",
+    "output": "images/header.html",
+    "quality_profile": "showcase",
+    "locale": "zh-CN"
+  },
+  "components": [
+    {
+      "id": "lit_head",
+      "type": "backend",
+      "label": "字面量 \"hello\"",
+      "sublabel": "str=0x…8b7 · len=5",
+      "tag": "编译期写入",
+      "pos": [
+        120,
+        130
+      ],
+      "size": [
+        210,
+        76
+      ]
+    },
+    {
+      "id": "lit_data",
+      "type": "database",
+      "label": "只读数据区 rodata",
+      "sublabel": "h e l l o · 共 5 字节 · 不可写",
+      "tag": "不可写",
+      "pos": [
+        470,
+        132
+      ],
+      "size": [
+        270,
+        76
+      ]
+    },
+    {
+      "id": "rt_head",
+      "type": "backend",
+      "label": "运行时构造 \"hello\"",
+      "sublabel": "str=0x…048 · len=5",
+      "tag": "运行时拼接",
+      "pos": [
+        120,
+        276
+      ],
+      "size": [
+        210,
+        76
+      ]
+    },
+    {
+      "id": "rt_data",
+      "type": "database",
+      "label": "堆/栈内存",
+      "sublabel": "h e l l o · 共 5 字节 · 生命周期由 GC 管",
+      "tag": "运行时分配",
+      "pos": [
+        470,
+        278
+      ],
+      "size": [
+        270,
+        76
+      ]
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "stringHeader{str, len} · 16 字节",
+      "wraps": [
+        "lit_head",
+        "rt_head"
+      ],
+      "pad": 18
+    },
+    {
+      "kind": "region",
+      "label": "字面量的数据：编译进二进制只读段",
+      "wraps": [
+        "lit_data"
+      ],
+      "pad": 14
+    },
+    {
+      "kind": "region",
+      "label": "运行时构造的数据：堆或栈上的副本",
+      "wraps": [
+        "rt_data"
+      ],
+      "pad": 14
+    }
+  ],
+  "connections": [
+    {
+      "from": "lit_head",
+      "to": "lit_data",
+      "label": "str 指向",
+      "variant": "emphasis"
+    },
+    {
+      "from": "rt_head",
+      "to": "rt_data",
+      "label": "str 指向"
+    },
+    {
+      "from": "lit_data",
+      "to": "rt_data",
+      "label": "同内容 · 区域不同 → 地址不同",
+      "variant": "dashed",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelAt": [
+        605,
+        235
+      ]
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "怎么看这张图",
+      "items": [
+        "string 只有 {str, len} 两个字段、16 字节，比 slice 少一个 cap",
+        "布局与 reflect.StringHeader 一致，是官方承诺的稳定结构，可 unsafe 读取",
+        "len=5 指的是 5 个字节；中文字符一个占 3 字节，字节数不等于字符数"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "同为 \"hello\"，两块内存",
+      "items": [
+        "字面量由编译器放进只读数据区（rodata）",
+        "运行时用 []byte 拼出的 string 数据落在堆/栈，地址完全不同",
+        "地址每次运行都不同，但「内容相同也各存一份」这一点永远成立"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "如何验证",
+      "items": [
+        "go run main.go 看第 1 节：两个 data 地址不同",
+        "go run main.go -json 看 header.literal / header.computed 的 addr",
+        "lit[0] = 'a' 直接编译报错：只读由语言层面强制"
+      ]
+    }
+  ]
+}

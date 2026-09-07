@@ -1,0 +1,171 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "Pub/Sub Broker：topic → 订阅者列表，发布扇出到各自 channel",
+    "output": "images/pubsub.html",
+    "quality_profile": "showcase",
+    "locale": "zh-CN"
+  },
+  "components": [
+    {
+      "id": "pub",
+      "type": "external",
+      "label": "发布者",
+      "sublabel": "Publish(topic, msg)",
+      "pos": [
+        90,
+        170
+      ],
+      "size": [
+        150,
+        64
+      ]
+    },
+    {
+      "id": "broker",
+      "type": "backend",
+      "label": "PubSub Broker",
+      "sublabel": "subs map[string][]*subscription",
+      "tag": "sync.RWMutex",
+      "pos": [
+        380,
+        170
+      ],
+      "size": [
+        190,
+        72
+      ]
+    },
+    {
+      "id": "sub1",
+      "type": "messagebus",
+      "label": "订阅者 #1",
+      "sublabel": "news · ch cap 64",
+      "pos": [
+        720,
+        60
+      ],
+      "size": [
+        170,
+        64
+      ]
+    },
+    {
+      "id": "sub2",
+      "type": "messagebus",
+      "label": "订阅者 #2",
+      "sublabel": "news · ch cap 64",
+      "pos": [
+        720,
+        176
+      ],
+      "size": [
+        170,
+        64
+      ]
+    },
+    {
+      "id": "sub3",
+      "type": "messagebus",
+      "label": "订阅者 #3",
+      "sublabel": "alerts · ch cap 64",
+      "pos": [
+        720,
+        292
+      ],
+      "size": [
+        170,
+        64
+      ]
+    },
+    {
+      "id": "slow",
+      "type": "external",
+      "label": "慢订阅者",
+      "sublabel": "ch 已满 → select default 丢弃",
+      "tag": "不阻塞发布者",
+      "pos": [
+        980,
+        176
+      ],
+      "size": [
+        180,
+        64
+      ]
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "topic \"news\" 订阅列表",
+      "wraps": [
+        "sub1",
+        "sub2"
+      ],
+      "pad": 16
+    },
+    {
+      "kind": "region",
+      "label": "topic \"alerts\" 订阅列表",
+      "wraps": [
+        "sub3"
+      ],
+      "pad": 16
+    }
+  ],
+  "connections": [
+    {
+      "from": "pub",
+      "to": "broker",
+      "label": "RLock 拷贝列表后发送"
+    },
+    {
+      "from": "broker",
+      "to": "sub1"
+    },
+    {
+      "from": "broker",
+      "to": "sub2"
+    },
+    {
+      "from": "broker",
+      "to": "sub3"
+    },
+    {
+      "from": "sub2",
+      "to": "slow",
+      "label": "ch 满即丢消息",
+      "variant": "dashed"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "心智模型",
+      "items": [
+        "Broker 只是一张 map[topic][]*subscription，锁保护读写",
+        "每个订阅一个独立 buffered channel（cap 64），互不干扰",
+        "发布 = 遍历快照逐个非阻塞发送，扇出互不阻塞"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "实测一次运行",
+      "items": [
+        "subscribers('news')=2 · subscribers('alerts')=1",
+        "Publish('news', …) → sent to 2 subs；Publish('unknown') → 0",
+        "unsub 后 subscribers('news')=1，再发布只 sent to 1 subs"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "发布三原则",
+      "items": [
+        "RLock 读订阅列表：多个 Publish 可并行",
+        "先 copy 再发送：锁内不做 channel 发送",
+        "select + default：慢订阅者不拖垮发布者（丢消息语义）"
+      ]
+    }
+  ]
+}

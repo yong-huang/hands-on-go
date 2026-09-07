@@ -1,0 +1,178 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "数组值内联 vs slice 24B header：一张图看懂内存布局",
+    "output": "images/layout.html",
+    "quality_profile": "showcase",
+    "locale": "zh-CN"
+  },
+  "components": [
+    {
+      "id": "arr",
+      "type": "database",
+      "label": "arr [5]int",
+      "sublabel": "sizeof=40B · 5×8B 内联",
+      "tag": "&arr == &arr[0]",
+      "pos": [
+        130,
+        140
+      ],
+      "size": [
+        220,
+        84
+      ]
+    },
+    {
+      "id": "h_sl",
+      "type": "backend",
+      "label": "sl：slice header",
+      "sublabel": "{Data, Len=5, Cap=5} · 共 24B",
+      "tag": "sizeof = 24B",
+      "pos": [
+        500,
+        140
+      ],
+      "size": [
+        220,
+        84
+      ]
+    },
+    {
+      "id": "slarr",
+      "type": "database",
+      "label": "sl 的底层数组",
+      "sublabel": "[1 2 3 4 5] · 5×8B",
+      "tag": "数据真正住这里",
+      "pos": [
+        830,
+        140
+      ],
+      "size": [
+        210,
+        84
+      ]
+    },
+    {
+      "id": "h_a",
+      "type": "backend",
+      "label": "sA = a[:]",
+      "sublabel": "len=5 · cap=5",
+      "tag": "data +0B",
+      "pos": [
+        420,
+        450
+      ],
+      "size": [
+        180,
+        84
+      ]
+    },
+    {
+      "id": "a_arr",
+      "type": "database",
+      "label": "底层数组 a [5]int",
+      "sublabel": "[1 2 3 4 5] · sB[0] 即 a[1]",
+      "tag": "只有一份数据",
+      "pos": [
+        680,
+        450
+      ],
+      "size": [
+        210,
+        84
+      ]
+    },
+    {
+      "id": "h_b",
+      "type": "backend",
+      "label": "sB = a[1:4]",
+      "sublabel": "len=3 · cap=4",
+      "tag": "data +8B",
+      "pos": [
+        970,
+        450
+      ],
+      "size": [
+        180,
+        84
+      ]
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "数组：值类型，数据就在变量里",
+      "wraps": [
+        "arr"
+      ],
+      "pad": 18
+    },
+    {
+      "kind": "region",
+      "label": "slice：24B header + 指向的底层数组",
+      "wraps": [
+        "h_sl",
+        "slarr"
+      ],
+      "pad": 18
+    },
+    {
+      "kind": "region",
+      "label": "a[1:4]：产生新 header，不复制数据",
+      "wraps": [
+        "h_a",
+        "a_arr",
+        "h_b"
+      ],
+      "pad": 18
+    }
+  ],
+  "connections": [
+    {
+      "from": "h_sl",
+      "to": "slarr",
+      "label": "Data 指向"
+    },
+    {
+      "from": "h_a",
+      "to": "a_arr",
+      "label": "data 偏移 +0B"
+    },
+    {
+      "from": "h_b",
+      "to": "a_arr",
+      "label": "data 偏移 +8B",
+      "variant": "emphasis"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "值 vs 视图",
+      "items": [
+        "数组 [5]int：sizeof=40B，元素直接内联，没有指针层",
+        "slice：变量只有 {Data, Len, Cap} 三字段，共 24B",
+        "&arr == &arr[0]；而 &sl != Data——header 里没有数据"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "切片窗口与别名",
+      "items": [
+        "sB = a[1:4]：data 只 +8B（1 个元素），len=3、cap=4 重算",
+        "sB[0]=99 后 sA=[1 99 3 4 5]——两个窗口框住同一块内存",
+        "传参同理：数组拷整份 40B，slice 只拷 24B header、共享数据"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "如何验证",
+      "items": [
+        "go run main.go 第 1/2 节：逐元素地址间隔 8B、&arr==&arr[0]",
+        "第 4 节打印 偏移 = 8 字节；改 sB[0] 后 sA 同步变 [1 99 3 4 5]",
+        "地址每次运行不同，sizeof 40/24 与 +8B 偏移永远不变"
+      ]
+    }
+  ]
+}

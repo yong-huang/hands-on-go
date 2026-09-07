@@ -1,0 +1,136 @@
+{
+  "schema_version": 1,
+  "diagram_type": "lifecycle",
+  "meta": {
+    "title": "池对象的两拍 GC 生命周期：victim 缓存延迟一拍清除",
+    "output": "images/gc_lifecycle.html",
+    "quality_profile": "showcase",
+    "locale": "zh-CN",
+    "viewBox": [
+      1080,
+      566
+    ]
+  },
+  "lanes": [
+    {
+      "id": "main",
+      "label": "对象所在位置（GC 拍子）"
+    }
+  ],
+  "states": [
+    {
+      "id": "put",
+      "type": "start",
+      "label": "Put 进池",
+      "sublabel": "Put 存入本 P 分片，可反复",
+      "lane": "main",
+      "col": 0,
+      "step": "01"
+    },
+    {
+      "id": "reuse",
+      "type": "active",
+      "label": "Get 复用",
+      "sublabel": "同轮内原样返回同一指针",
+      "tag": "实测 3 轮全同一对象",
+      "lane": "main",
+      "col": 1,
+      "step": "02"
+    },
+    {
+      "id": "victim",
+      "type": "waiting",
+      "label": "victim 缓存",
+      "sublabel": "local 整体平移进来",
+      "tag": "GC×1 后 Get 仍能捞回",
+      "lane": "main",
+      "col": 2,
+      "step": "03"
+    },
+    {
+      "id": "cleared",
+      "type": "failure",
+      "label": "彻底清除",
+      "sublabel": "victim 丢弃，只剩 New()",
+      "tag": "GC×2 后重建（实测触发 New）",
+      "lane": "main",
+      "col": 3,
+      "step": "04"
+    }
+  ],
+  "transitions": [
+    {
+      "id": "t_get",
+      "from": "put",
+      "to": "reuse",
+      "label": "Get 取出",
+      "variant": "emphasis",
+      "labelAt": [
+        171,
+        208
+      ]
+    },
+    {
+      "id": "t_gc1",
+      "from": "reuse",
+      "to": "victim",
+      "label": "GC 第 1 拍",
+      "variant": "emphasis",
+      "labelAt": [
+        325,
+        108
+      ]
+    },
+    {
+      "id": "t_rescue",
+      "from": "victim",
+      "to": "reuse",
+      "label": "Get 捞回旧对象",
+      "variant": "default",
+      "labelAt": [
+        325,
+        208
+      ]
+    },
+    {
+      "id": "t_gc2",
+      "from": "victim",
+      "to": "cleared",
+      "label": "GC 第 2 拍",
+      "variant": "emphasis",
+      "labelAt": [
+        479,
+        208
+      ]
+    }
+  ],
+  "cards": [
+    {
+      "dot": "emerald",
+      "title": "实测两拍序列（exp2，单 P）",
+      "items": [
+        "GC×1 后 Get → 捞出旧对象（seed=true）：victim 兜底",
+        "GC×2 后 Get → 触发 New（seed=false）：彻底清空",
+        "每次 GC 先丢旧 victim，再把 local 平移成 victim"
+      ]
+    },
+    {
+      "dot": "cyan",
+      "title": "为什么这么设计",
+      "items": [
+        "「慢一周期」淘汰：给高频复用留一个 GC 窗口",
+        "拍间对象仍在，GC 后第一波 Get 不打穿 New",
+        "对象生命周期与 GC 绑定，不能当持久缓存"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "怎么验证",
+      "items": [
+        "go run main.go 看 exp2 的两轮 GC 序列",
+        "多 P 下 victim 是概率性的，需锁 GOMAXPROCS(1)",
+        "exp3：复用 GC 0 次 vs 裸 new 19 次"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,174 @@
+{
+  "schema_version": 1,
+  "diagram_type": "dataflow",
+  "meta": {
+    "title": "Mini HTTP Router：一次请求的匹配与分发数据流",
+    "locale": "zh-CN",
+    "quality_profile": "showcase",
+    "viewBox": [
+      1076,
+      660
+    ],
+    "animation": "trace",
+    "legend": {
+      "mode": "hidden"
+    }
+  },
+  "stages": [
+    {
+      "label": "请求入口"
+    },
+    {
+      "label": "方法分派"
+    },
+    {
+      "label": "逐段匹配"
+    },
+    {
+      "label": "参数注入"
+    },
+    {
+      "label": "执行响应"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "req",
+      "type": "frontend",
+      "label": "HTTP 请求",
+      "sublabel": "GET /users/42/posts/7",
+      "stage": 0,
+      "row": 1,
+      "width": 150
+    },
+    {
+      "id": "tree",
+      "type": "backend",
+      "label": "路由表按方法分派",
+      "sublabel": "GET/POST/PUT/DELETE 子树",
+      "tag": "RWMutex 读锁",
+      "stage": 1,
+      "row": 1,
+      "width": 196
+    },
+    {
+      "id": "static",
+      "type": "backend",
+      "label": "静态段精确匹配",
+      "sublabel": "users、posts 逐段相等",
+      "stage": 2,
+      "row": 0,
+      "width": 184
+    },
+    {
+      "id": "param",
+      "type": "backend",
+      "label": "参数段 :param 捕获",
+      "sublabel": ":id→42  :pid→7 任意段（空串也捕获）",
+      "stage": 2,
+      "row": 2,
+      "width": 196
+    },
+    {
+      "id": "inject",
+      "type": "messagebus",
+      "label": "params 注入 context",
+      "sublabel": "WithValue → Param(r)",
+      "tag": "map[string]string",
+      "stage": 3,
+      "row": 1,
+      "width": 188
+    },
+    {
+      "id": "mw",
+      "type": "security",
+      "label": "中间件链",
+      "sublabel": "逆序包裹：LOG→AUTH",
+      "stage": 3,
+      "row": 3,
+      "width": 172
+    },
+    {
+      "id": "handler",
+      "type": "frontend",
+      "label": "业务 handler",
+      "sublabel": "userId=42, postId=7",
+      "tag": "200",
+      "stage": 4,
+      "row": 1,
+      "width": 176
+    },
+    {
+      "id": "nf",
+      "type": "database",
+      "label": "http.NotFound",
+      "sublabel": "遍历完无命中",
+      "tag": "404",
+      "stage": 4,
+      "row": 3,
+      "width": 160
+    }
+  ],
+  "flows": [
+    {
+      "id": "f1",
+      "from": "req",
+      "to": "tree",
+      "label": "Method + Path",
+      "variant": "emphasis",
+      "labelAt": [
+        201,
+        314
+      ]
+    },
+    {
+      "id": "f2",
+      "from": "tree",
+      "to": "static",
+      "label": "候选路由逐条比对"
+    },
+    {
+      "id": "f3",
+      "from": "static",
+      "to": "param",
+      "label": "静态段全相等",
+      "labelAt": [
+        530,
+        205
+      ]
+    },
+    {
+      "id": "f4",
+      "from": "param",
+      "to": "inject",
+      "label": "params={id:42, pid:7}",
+      "variant": "emphasis"
+    },
+    {
+      "id": "f5",
+      "from": "inject",
+      "to": "mw",
+      "label": "WithContext",
+      "labelAt": [
+        745,
+        318
+      ]
+    },
+    {
+      "id": "f6",
+      "from": "mw",
+      "to": "handler",
+      "label": "next(w, r)",
+      "variant": "emphasis"
+    },
+    {
+      "id": "f7",
+      "from": "param",
+      "to": "nf",
+      "label": "不匹配 → 试下一条",
+      "variant": "dashed",
+      "route": "bottom-channel",
+      "channelY": 596
+    }
+  ]
+}

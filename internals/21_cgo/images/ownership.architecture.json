@@ -1,0 +1,131 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "CGO 内存归属：C 的 malloc/free 世界 vs Go 的 GC 世界",
+    "output": "images/ownership.html",
+    "quality_profile": "showcase",
+    "locale": "zh-CN"
+  },
+  "components": [
+    {
+      "id": "go_main",
+      "type": "backend",
+      "label": "Go 调用方",
+      "sublabel": "64 × C.alloc_buf(1MB)",
+      "tag": "leak 模式",
+      "pos": [140, 320],
+      "size": [200, 72]
+    },
+    {
+      "id": "go_heap",
+      "type": "database",
+      "label": "Go 堆",
+      "sublabel": "make([]byte,1MB) × 64",
+      "tag": "HeapInuse 可见",
+      "pos": [140, 140],
+      "size": [200, 72]
+    },
+    {
+      "id": "gc",
+      "type": "security",
+      "label": "Go GC",
+      "sublabel": "只扫 Go 指针",
+      "tag": "runtime.GC() × 3",
+      "pos": [450, 140],
+      "size": [180, 72]
+    },
+    {
+      "id": "c_heap",
+      "type": "database",
+      "label": "C 堆 malloc 区",
+      "sublabel": "C.malloc(1MB) × 64 = 64MB",
+      "tag": "考勤表外",
+      "pos": [830, 320],
+      "size": [210, 72]
+    },
+    {
+      "id": "c_free",
+      "type": "backend",
+      "label": "C.free(p)",
+      "sublabel": "唯一归还出路",
+      "tag": "free 后 RSS 回基线",
+      "pos": [830, 140],
+      "size": [210, 72]
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "Go 世界：GC 的考勤表",
+      "wraps": ["go_main", "go_heap", "gc"],
+      "pad": 18
+    },
+    {
+      "kind": "region",
+      "label": "C 世界：malloc/free 自己管",
+      "wraps": ["c_heap", "c_free"],
+      "pad": 18
+    }
+  ],
+  "connections": [
+    {
+      "from": "go_main",
+      "to": "c_heap",
+      "label": "跨 cgo 调用边界",
+      "variant": "emphasis"
+    },
+    {
+      "from": "c_heap",
+      "to": "c_free",
+      "label": "用完显式归还",
+      "variant": "emphasis"
+    },
+    {
+      "from": "go_main",
+      "to": "go_heap",
+      "label": "make 进 Go 堆"
+    },
+    {
+      "from": "gc",
+      "to": "go_heap",
+      "label": "标记可达才保留"
+    },
+    {
+      "from": "gc",
+      "to": "c_heap",
+      "label": "GC 不可见",
+      "variant": "dashed"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "三种模式实测（64×1MB，独立进程）",
+      "items": [
+        "leak：分配后 RSS 73MB，GC 三遍后 74MB —— 纹丝不动",
+        "free：正确 C.free，RSS ≈10MB 回到基线",
+        "go：堆峰值 64MB 交给 GC，RSS 平稳 ≈11MB",
+        "RSS 每次运行 ±1MB 波动，结论不变"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "为什么 GC 管不了 C 内存",
+      "items": [
+        "GC 只遍历 Go 指针：栈/寄存器/全局 + Go 堆内指针",
+        "C.malloc 的内存从不登记进 GC 对象集",
+        "leak 模式 Go 堆峰值打印为 0（<1MB），RSS 却 73MB"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "边界规则",
+      "items": [
+        "C 指针借给 Go 只读安全：peek(p, 0) 即是",
+        "Go 指针长期借给 C 保存：被 checkptr / -race 拦",
+        "C.CBytes / C.GoBytes：拷贝一次即完成所有权交接"
+      ]
+    }
+  ]
+}

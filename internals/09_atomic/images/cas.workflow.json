@@ -1,0 +1,126 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "CAS 无锁更新：失败就重读重试的乐观并发",
+    "output": "images/cas.html",
+    "quality_profile": "showcase",
+    "locale": "zh-CN",
+    "legend": {
+      "mode": "hidden"
+    }
+  },
+  "lanes": [
+    {
+      "id": "loop",
+      "label": "CAS 重试循环（main.go 第 2 节）"
+    },
+    {
+      "id": "fail",
+      "label": "失败分支"
+    }
+  ],
+  "mainPath": [
+    "load",
+    "cas",
+    "done"
+  ],
+  "nodes": [
+    {
+      "id": "load",
+      "lane": "loop",
+      "col": 0,
+      "type": "frontend",
+      "label": "LoadInt64 读旧值",
+      "sublabel": "old = v",
+      "width": 132
+    },
+    {
+      "id": "cas",
+      "lane": "loop",
+      "col": 1,
+      "type": "backend",
+      "label": "CompareAndSwapInt64",
+      "sublabel": "v==old 则写 old+1",
+      "width": 132
+    },
+    {
+      "id": "done",
+      "lane": "loop",
+      "col": 2,
+      "type": "backend",
+      "label": "本轮 +1 完成",
+      "sublabel": "并发下依然精确",
+      "width": 132
+    },
+    {
+      "id": "retry",
+      "lane": "fail",
+      "col": 1,
+      "type": "frontend",
+      "label": "失败：重读重试",
+      "sublabel": "retries++ · 重读新值再战",
+      "tag": "乐观并发",
+      "width": 132
+    }
+  ],
+  "edges": [
+    {
+      "id": "e1",
+      "from": "load",
+      "to": "cas",
+      "label": "一条原子指令",
+      "variant": "emphasis"
+    },
+    {
+      "id": "e2",
+      "from": "cas",
+      "to": "done",
+      "label": "old 仍匹配",
+      "variant": "emphasis"
+    },
+    {
+      "id": "e3",
+      "from": "cas",
+      "to": "retry",
+      "label": "old 被人抢先改",
+      "variant": "dashed",
+      "role": "branch"
+    },
+    {
+      "id": "e4",
+      "from": "retry",
+      "to": "load",
+      "label": "循环直到成功"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "实测结果",
+      "items": [
+        "16 并发 × 10 万次：CAS 计数 1600000，精确无丢失",
+        "代价是重试：本轮实测 CAS 失败约 300 万次（每次运行不同）",
+        "重试再多也不阻塞——这是与锁最大的区别"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "乐观并发与自旋锁",
+      "items": [
+        "不加锁，先赌「没人抢我」：抢失败就重读新值再来一轮",
+        "同一套路拼出自旋锁：拿锁 CAS(0→1)，放锁 Store(0)",
+        "高竞争下空转浪费 CPU，失败路径记得 runtime.Gosched() 让出"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "arm64 实测指令",
+      "items": [
+        "CAS 编译为 LDAXR + STLXR 独占对（比较-交换一条语义）",
+        "AddInt64 → LDADDAL，自带 acquire+release 语义",
+        "go run main.go 看「CAS 失败重试 N 次」即为循环代价"
+      ]
+    }
+  ]
+}

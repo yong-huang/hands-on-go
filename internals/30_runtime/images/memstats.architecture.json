@@ -1,0 +1,170 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "runtime 内存画像：MemStats 字段 × mcache/mcentral/mheap 层级",
+    "locale": "zh-CN",
+    "quality_profile": "showcase",
+    "viewBox": [
+      1240,
+      520
+    ]
+  },
+  "components": [
+    {
+      "id": "gtask",
+      "type": "frontend",
+      "label": "G 任务",
+      "sublabel": "12 任务 × 100 次 alloc",
+      "tag": "TotalAlloc：累计 1200 次",
+      "pos": [
+        40,
+        210
+      ],
+      "size": [
+        160,
+        84
+      ]
+    },
+    {
+      "id": "mcache",
+      "type": "database",
+      "label": "mcache",
+      "sublabel": "每 P 本地 free list · 无锁",
+      "tag": "命中即分 · 补货 8 个",
+      "pos": [
+        300,
+        210
+      ],
+      "size": [
+        160,
+        84
+      ]
+    },
+    {
+      "id": "mcentral",
+      "type": "database",
+      "label": "mcentral",
+      "sublabel": "每 size class 一把锁",
+      "tag": "5 类：8/16/32/64/128 B",
+      "pos": [
+        560,
+        210
+      ],
+      "size": [
+        160,
+        84
+      ]
+    },
+    {
+      "id": "gc",
+      "type": "backend",
+      "label": "gc() 标记-清扫",
+      "sublabel": "从 roots DFS 标记",
+      "tag": "3 次 GC · 回收 12112~13976 B",
+      "pos": [
+        560,
+        40
+      ],
+      "size": [
+        170,
+        84
+      ]
+    },
+    {
+      "id": "mheap",
+      "type": "backend",
+      "label": "mheap / arena",
+      "sublabel": "模拟：预建 184 对象池",
+      "tag": "HeapSys 口径",
+      "pos": [
+        820,
+        210
+      ],
+      "size": [
+        160,
+        84
+      ]
+    },
+    {
+      "id": "os",
+      "type": "external",
+      "label": "OS",
+      "sublabel": "Sys：进程预留总内存",
+      "pos": [
+        1050,
+        210
+      ],
+      "size": [
+        130,
+        84
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "id": "alloc",
+      "from": "gtask",
+      "to": "mcache",
+      "label": "alloc(c)：先查本地",
+      "variant": "emphasis"
+    },
+    {
+      "id": "refill",
+      "from": "mcache",
+      "to": "mcentral",
+      "label": "空则 refill 补 8 个",
+      "variant": "emphasis"
+    },
+    {
+      "id": "backing",
+      "from": "mcentral",
+      "to": "mheap",
+      "label": "内存来自页堆/池"
+    },
+    {
+      "id": "pages",
+      "from": "mheap",
+      "to": "os",
+      "label": "缺页申请"
+    },
+    {
+      "id": "sweep",
+      "from": "gc",
+      "to": "mcentral",
+      "label": "未标记对象退回 free list",
+      "variant": "dashed",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelDy": 24
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "字段 ↔ 层级",
+      "items": [
+        "TotalAlloc：累计分配计数（模拟里 allocs=1200），只增不减",
+        "HeapAlloc：当前存活字节（模拟 liveBytes=120，即 15 个根对象）",
+        "HeapSys：向 OS 要的堆总量（模拟=184 个对象一次性预建）",
+        "Sys：进程从 OS 预留的全部内存，堆只是其中一部分"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "主路径",
+      "items": [
+        "分配永远先走 mcache（无锁），不够才去 mcentral 补一批",
+        "mcentral 的内存最终来自 mheap 页堆，mheap 再向 OS 缺页"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "数据漂移说明",
+      "items": [
+        "回收字节数随调度时序浮动：多次实测 12112~13976 B",
+        "工作窃取次数也在 6~7 次间波动，其余统计稳定"
+      ]
+    }
+  ]
+}

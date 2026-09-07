@@ -1,0 +1,177 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "一次接口调用的开销路径：itab 间接寻址 vs 被挡死的优化",
+    "output": "images/dispatch.html",
+    "viewBox": [
+      980,
+      560
+    ],
+    "quality_profile": "showcase",
+    "locale": "zh-CN",
+    "legend": {
+      "mode": "hidden"
+    }
+  },
+  "lanes": [
+    {
+      "id": "caller",
+      "label": "调用点（紧循环）"
+    },
+    {
+      "id": "itab",
+      "label": "itab 动态派发"
+    },
+    {
+      "id": "static",
+      "label": "直接调用对照"
+    }
+  ],
+  "mainPath": [
+    "calliface",
+    "loaditab",
+    "funslot",
+    "icall",
+    "opaque"
+  ],
+  "nodes": [
+    {
+      "id": "calliface",
+      "lane": "caller",
+      "col": 0,
+      "type": "frontend",
+      "label": "接口调用 c.Calc(i)",
+      "sublabel": "接口值 = (itab 指针, data 指针)",
+      "width": 132
+    },
+    {
+      "id": "loaditab",
+      "lane": "itab",
+      "col": 1,
+      "type": "backend",
+      "label": "读 itab",
+      "sublabel": "inter 类型 + 具体类型 + 方法表",
+      "width": 132
+    },
+    {
+      "id": "funslot",
+      "lane": "itab",
+      "col": 2,
+      "type": "backend",
+      "label": "取 itab.fun[i]",
+      "sublabel": "按方法序号间接寻址函数指针",
+      "width": 132
+    },
+    {
+      "id": "icall",
+      "lane": "itab",
+      "col": 3,
+      "type": "backend",
+      "label": "间接 CALL",
+      "sublabel": "CALL AX：目标地址运行时才定",
+      "tag": "实测 ≈1.05x noinline",
+      "width": 132
+    },
+    {
+      "id": "opaque",
+      "lane": "caller",
+      "col": 4,
+      "type": "security",
+      "label": "优化视野被挡死",
+      "sublabel": "黑盒调用：无法内联、无法去虚化",
+      "width": 132
+    },
+    {
+      "id": "dcall",
+      "lane": "static",
+      "col": 0,
+      "type": "frontend",
+      "label": "直接调用 s.Calc(i)",
+      "sublabel": "编译期定死 CALL 目标地址",
+      "width": 132
+    },
+    {
+      "id": "fold",
+      "lane": "static",
+      "col": 2,
+      "type": "frontend",
+      "label": "内联 + 常量折叠",
+      "sublabel": "const 方法：整个循环被删掉",
+      "tag": "0.65 vs 0.90 ns/op",
+      "width": 132
+    }
+  ],
+  "edges": [
+    {
+      "id": "e1",
+      "from": "calliface",
+      "to": "loaditab",
+      "label": "每次调用都走",
+      "variant": "emphasis"
+    },
+    {
+      "id": "e2",
+      "from": "loaditab",
+      "to": "funslot",
+      "variant": "default"
+    },
+    {
+      "id": "e3",
+      "from": "funslot",
+      "to": "icall",
+      "variant": "default"
+    },
+    {
+      "id": "e4",
+      "from": "icall",
+      "to": "opaque",
+      "label": "优化到此为止",
+      "variant": "emphasis"
+    },
+    {
+      "id": "e5",
+      "from": "calliface",
+      "to": "dcall",
+      "label": "对照：静态派发",
+      "variant": "dashed",
+      "role": "branch"
+    },
+    {
+      "id": "e6",
+      "from": "dcall",
+      "to": "fold",
+      "label": "编译器放开手脚",
+      "variant": "emphasis"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "rose",
+      "title": "实测结论（一次典型运行）",
+      "items": [
+        "itab 派发 1.13 vs noinline 直接 1.09 ns/op：间接寻址几乎不加价",
+        "与可内联直接调用 0.68 比约 1.65x：差价全是被挡死的优化",
+        "const 方法 0.66 → 0.90 ns/op：折叠删循环 vs itab 每次真调"
+      ]
+    },
+    {
+      "dot": "cyan",
+      "title": "怎么破解",
+      "items": [
+        "热循环用类型断言 / type switch 剥壳回具体类型（实测 0.90 ns/op）",
+        "单实现接口编译器可部分去虚化；多实现仍走 itab",
+        "面向接口的设计收益远大于这 ~1ns，业务代码不必焦虑"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "如何验证",
+      "items": [
+        "go run main.go 看七组 ns/op 与 -json 快照",
+        "go tool objdump 看间接 CALL 与内联差异（viz.py 已自动化）",
+        "benchmark 波动大，判断看比值与趋势，不纠结绝对值"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,188 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "ShardMap：key → FNV-32a → 取模 → 各自加锁的分片",
+    "output": "images/shard.html",
+    "quality_profile": "showcase",
+    "locale": "zh-CN"
+  },
+  "components": [
+    {
+      "id": "caller",
+      "type": "frontend",
+      "label": "调用方 goroutine",
+      "sublabel": "Set(\"beta\", v) / Get(\"alpha\")",
+      "tag": "8 并发",
+      "pos": [
+        90,
+        150
+      ],
+      "size": [
+        190,
+        76
+      ]
+    },
+    {
+      "id": "fnv",
+      "type": "backend",
+      "label": "FNV-32a",
+      "sublabel": "h := fnv.New32a()",
+      "tag": "非加密 · 极快",
+      "pos": [
+        380,
+        150
+      ],
+      "size": [
+        170,
+        76
+      ]
+    },
+    {
+      "id": "router",
+      "type": "backend",
+      "label": "取模路由",
+      "sublabel": "idx = hash % shardCount",
+      "tag": "demo N=4",
+      "pos": [
+        650,
+        150
+      ],
+      "size": [
+        200,
+        76
+      ]
+    },
+    {
+      "id": "s0",
+      "type": "database",
+      "label": "shard[0]",
+      "sublabel": "RWMutex · map（本次无 key）",
+      "pos": [
+        980,
+        60
+      ],
+      "size": [
+        240,
+        66
+      ]
+    },
+    {
+      "id": "s1",
+      "type": "database",
+      "label": "shard[1]",
+      "sublabel": "delta · epsilon",
+      "pos": [
+        980,
+        160
+      ],
+      "size": [
+        240,
+        66
+      ]
+    },
+    {
+      "id": "s2",
+      "type": "database",
+      "label": "shard[2]",
+      "sublabel": "gamma",
+      "pos": [
+        980,
+        260
+      ],
+      "size": [
+        240,
+        66
+      ]
+    },
+    {
+      "id": "s3",
+      "type": "database",
+      "label": "shard[3]",
+      "sublabel": "alpha · beta · zeta",
+      "tag": "Set 用 Lock · Get 用 RLock",
+      "pos": [
+        980,
+        360
+      ],
+      "size": [
+        240,
+        66
+      ]
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "ShardMap.shards[]  写并行度 = shard 数",
+      "wraps": [
+        "s0",
+        "s1",
+        "s2",
+        "s3"
+      ],
+      "pad": 18
+    }
+  ],
+  "connections": [
+    {
+      "from": "caller",
+      "to": "fnv",
+      "label": "key string"
+    },
+    {
+      "from": "fnv",
+      "to": "router",
+      "label": "uint32 hash"
+    },
+    {
+      "from": "router",
+      "to": "s3",
+      "label": "hash%4=3：beta",
+      "variant": "emphasis",
+      "fromSide": "bottom",
+      "toSide": "left"
+    },
+    {
+      "from": "router",
+      "to": "s0"
+    },
+    {
+      "from": "router",
+      "to": "s1"
+    },
+    {
+      "from": "router",
+      "to": "s2"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "心智模型",
+      "items": [
+        "N 个 shard，各自一把 RWMutex + 一个 map，锁粒度从全局缩到单 shard",
+        "不同 shard 上的操作完全并行；写并行度上限 = shard 数",
+        "同 shard 内：Get 走 RLock 可共享，Set/Delete 走 Lock 独占"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "路由实测（go run 输出）",
+      "items": [
+        "demo N=4：alpha→3 · beta→3 · gamma→2 · delta→1 · epsilon→1 · zeta→3",
+        "两个 key 落同一 shard 不影响正确性，只是竞争同一把锁",
+        "key 分布越均匀，锁竞争越接近理论下限"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "实测吞吐（8 goroutine 混合负载）",
+      "items": [
+        "shard=1 约 9.6M ops/s → shard=32 约 31.0M ops/s",
+        "但同负载下 sync.Map 约 54.9M ops/s，仍快于 ShardMap",
+        "shard=1 的 ShardMap 比一把 sync.Mutex 还慢（RWMutex 开销）"
+      ]
+    }
+  ]
+}

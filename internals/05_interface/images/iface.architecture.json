@@ -1,0 +1,220 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "接口的两字布局：eface 与 iface 并排，itab 展开与共享",
+    "output": "images/iface.html",
+    "quality_profile": "showcase",
+    "locale": "zh-CN"
+  },
+  "components": [
+    {
+      "id": "eface",
+      "type": "backend",
+      "label": "eface（interface{}）",
+      "sublabel": "{ _type, data } 两字 · 16B",
+      "tag": "e := interface{}(42)",
+      "pos": [
+        110,
+        120
+      ],
+      "size": [
+        220,
+        80
+      ]
+    },
+    {
+      "id": "tinfo",
+      "type": "database",
+      "label": "_type → int 类型信息",
+      "sublabel": "进程内全局唯一",
+      "tag": "e1/e4 共享 0x…a40",
+      "pos": [
+        470,
+        95
+      ],
+      "size": [
+        220,
+        68
+      ]
+    },
+    {
+      "id": "dbox",
+      "type": "database",
+      "label": "data → 42 的装箱副本",
+      "sublabel": "值类型装接口先拷贝",
+      "tag": "0x…480",
+      "pos": [
+        470,
+        195
+      ],
+      "size": [
+        220,
+        68
+      ]
+    },
+    {
+      "id": "iface",
+      "type": "backend",
+      "label": "iface（Speaker）",
+      "sublabel": "{ itab, data } 两字 · 16B",
+      "tag": "s1 := Dog{}",
+      "pos": [
+        110,
+        350
+      ],
+      "size": [
+        220,
+        80
+      ]
+    },
+    {
+      "id": "itab",
+      "type": "database",
+      "label": "itab → Speaker×Dog",
+      "sublabel": "（接口, 具体类型）缓存一份",
+      "tag": "s1/s3 共享 0x…058",
+      "pos": [
+        470,
+        330
+      ],
+      "size": [
+        220,
+        68
+      ]
+    },
+    {
+      "id": "dinst",
+      "type": "database",
+      "label": "data → Dog{} 实例",
+      "sublabel": "零大小结构体共用地址",
+      "tag": "s1/s2/s3 均为 0x…f40",
+      "pos": [
+        470,
+        430
+      ],
+      "size": [
+        220,
+        68
+      ]
+    },
+    {
+      "id": "inter",
+      "type": "database",
+      "label": "inter：接口类型 Speaker",
+      "sublabel": "断言时比对它",
+      "pos": [
+        820,
+        300
+      ],
+      "size": [
+        210,
+        60
+      ]
+    },
+    {
+      "id": "conc",
+      "type": "database",
+      "label": "具体类型：main.Dog",
+      "sublabel": "换成 Cat 就是另一个 itab（0x…078）",
+      "pos": [
+        820,
+        385
+      ],
+      "size": [
+        210,
+        60
+      ]
+    },
+    {
+      "id": "meths",
+      "type": "database",
+      "label": "方法表：[Bite, Speak]",
+      "sublabel": "方法调用 = 查表间接寻址",
+      "pos": [
+        820,
+        470
+      ],
+      "size": [
+        210,
+        60
+      ]
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "itab 展开：同一（接口, 具体类型）组合全局唯一",
+      "wraps": [
+        "inter",
+        "conc",
+        "meths"
+      ],
+      "pad": 18
+    }
+  ],
+  "connections": [
+    {
+      "from": "eface",
+      "to": "tinfo",
+      "label": "第一字：类型指针"
+    },
+    {
+      "from": "eface",
+      "to": "dbox",
+      "label": "第二字：数据指针"
+    },
+    {
+      "from": "iface",
+      "to": "itab",
+      "label": "第一字：itab 指针",
+      "variant": "emphasis"
+    },
+    {
+      "from": "iface",
+      "to": "dinst",
+      "label": "第二字：数据指针"
+    },
+    {
+      "from": "itab",
+      "to": "inter"
+    },
+    {
+      "from": "itab",
+      "to": "conc"
+    },
+    {
+      "from": "itab",
+      "to": "meths"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "怎么看这张图",
+      "items": [
+        "接口变量就是两个指针字：interface{} 第一字是 _type，带方法接口第一字是 itab",
+        "第二字都是 data：指向装箱后的数据副本或原指针",
+        "类型名与方法集由 reflect 读取；_type/itab 内部字段从不解引用"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "itab 全局缓存",
+      "items": [
+        "runtime 按（接口类型, 具体类型）组合缓存 itab，只此一份",
+        "实测 s1/s3 同为 Dog → itab 同为 0x…058；s2 是 Cat → 0x…078",
+        "_type 也一样：e1(int 42) 与 e4(int 99) 共享同一份 int 类型信息"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "如何验证",
+      "items": [
+        "go run main.go 看第 1、3 节打印的两字地址",
+        "地址每次运行不同；「相同/不同」的关系才是结论",
+        "零大小结构体 Dog{} 的 data 地址也相同，属 runtime 特性"
+      ]
+    }
+  ]
+}

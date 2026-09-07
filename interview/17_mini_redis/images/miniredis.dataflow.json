@@ -1,0 +1,163 @@
+{
+  "schema_version": 1,
+  "diagram_type": "dataflow",
+  "meta": {
+    "title": "Mini Redis 命令数据流：accept → 每连接 goroutine → 解析 → 分派 → 加锁存储 → 回写",
+    "output": "images/miniredis.html",
+    "quality_profile": "showcase",
+    "locale": "zh-CN",
+    "viewBox": [
+      1080,
+      500
+    ]
+  },
+  "stages": [
+    {
+      "label": "接入"
+    },
+    {
+      "label": "并发"
+    },
+    {
+      "label": "协议解析"
+    },
+    {
+      "label": "命令分派"
+    },
+    {
+      "label": "存储与回写"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "listener",
+      "type": "backend",
+      "label": "net.Listen + Accept",
+      "sublabel": "阻塞等新连接",
+      "stage": 0,
+      "row": 1,
+      "tag": "TCP"
+    },
+    {
+      "id": "handleConn",
+      "type": "backend",
+      "label": "handleConn",
+      "sublabel": "每连接 1 个 goroutine",
+      "stage": 1,
+      "row": 1,
+      "tag": "C10K 模型"
+    },
+    {
+      "id": "parser",
+      "type": "backend",
+      "label": "RESP-like 行解析",
+      "sublabel": "ReadString→Fields",
+      "stage": 2,
+      "row": 1,
+      "tag": "文本协议"
+    },
+    {
+      "id": "dispatch",
+      "type": "backend",
+      "label": "executeCommand",
+      "sublabel": "SET GET DEL EXPIRE TTL PING",
+      "stage": 3,
+      "row": 1,
+      "tag": "switch 分派",
+      "width": 160
+    },
+    {
+      "id": "store",
+      "type": "database",
+      "label": "KVStore",
+      "sublabel": "RWMutex + 两 map",
+      "stage": 4,
+      "row": 0,
+      "tag": "锁保护",
+      "width": 160
+    },
+    {
+      "id": "writer",
+      "type": "external",
+      "label": "回写响应",
+      "sublabel": "Fprintf 写回 conn",
+      "stage": 4,
+      "row": 2,
+      "tag": "写回 socket"
+    }
+  ],
+  "flows": [
+    {
+      "id": "accept",
+      "from": "listener",
+      "to": "handleConn",
+      "label": "conn 交给新协程",
+      "variant": "emphasis"
+    },
+    {
+      "id": "read",
+      "from": "handleConn",
+      "to": "parser",
+      "label": "读一行命令",
+      "variant": "emphasis"
+    },
+    {
+      "id": "tokens",
+      "from": "parser",
+      "to": "dispatch",
+      "label": "parts []string",
+      "variant": "emphasis"
+    },
+    {
+      "id": "exec",
+      "from": "dispatch",
+      "to": "store",
+      "label": "读操作 RLock / 写操作 Lock",
+      "variant": "emphasis",
+      "labelAt": [
+        853,
+        318
+      ]
+    },
+    {
+      "id": "reply",
+      "from": "store",
+      "to": "writer",
+      "label": "OK · \"Alice\" · (integer) 1",
+      "variant": "emphasis",
+      "labelAt": [
+        960,
+        205
+      ]
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "主路径怎么看",
+      "items": [
+        "从左到右一条主路径：accept → goroutine → 解析 → 分派 → KVStore → 回写",
+        "每条连接独占一个 goroutine，互不阻塞，这是 Go 版 C10K 的答案",
+        "分派后按命令走读锁（GET/TTL）或写锁（SET/DEL/EXPIRE）"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "并发安全",
+      "items": [
+        "多个 goroutine 同时操作同一个 KVStore，靠 sync.RWMutex 保证安全",
+        "GET/TTL 只拿 RLock，可并发；SET/DEL/EXPIRE 与清理协程拿 Lock，独占",
+        "SET 会 delete(s.expiry, key)：重设键即重置 TTL"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "实测响应",
+      "items": [
+        "SET name Alice → OK；GET name → \"Alice\"",
+        "EXPIRE session 10 → (integer) 1；TTL session → (integer) 9，2 秒后再查 → 7",
+        "TTL name（无过期）→ -1；TTL notexist → -2；PING → PONG"
+      ]
+    }
+  ]
+}

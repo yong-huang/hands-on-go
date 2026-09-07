@@ -1,0 +1,108 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "string 与 []byte 双向转换：各拷贝一次",
+    "output": "images/convert.html",
+    "quality_profile": "showcase",
+    "locale": "zh-CN",
+    "legend": {
+      "mode": "hidden"
+    }
+  },
+  "lanes": [
+    {
+      "id": "s2b",
+      "label": "string → []byte（main.go 第 3 节）"
+    },
+    {
+      "id": "b2s",
+      "label": "[]byte → string（main.go 第 4 节）"
+    }
+  ],
+  "mainPath": [
+    "c1",
+    "m1"
+  ],
+  "nodes": [
+    {
+      "id": "c1",
+      "lane": "s2b",
+      "col": 0,
+      "type": "frontend",
+      "label": "b := []byte(s)",
+      "sublabel": "分配新内存 + 拷贝",
+      "width": 132
+    },
+    {
+      "id": "m1",
+      "lane": "s2b",
+      "col": 1,
+      "type": "backend",
+      "label": "b[0] = 'j'",
+      "sublabel": "b=\"jello\" · s=\"hello\" 不变",
+      "width": 132
+    },
+    {
+      "id": "c2",
+      "lane": "b2s",
+      "col": 0,
+      "type": "frontend",
+      "label": "t := string(bs)",
+      "sublabel": "再分配 + 再拷贝",
+      "width": 132
+    },
+    {
+      "id": "m2",
+      "lane": "b2s",
+      "col": 1,
+      "type": "backend",
+      "label": "bs[0] = 'X'",
+      "sublabel": "bs=\"Xi\" · t=\"hi\" 不变",
+      "width": 132
+    }
+  ],
+  "edges": [
+    {
+      "id": "e1",
+      "from": "c1",
+      "to": "m1",
+      "label": "两份独立数据，改 b 不动 s",
+      "variant": "emphasis"
+    },
+    {
+      "id": "e2",
+      "from": "c1",
+      "to": "c2",
+      "label": "反向转换同理",
+      "variant": "dashed",
+      "role": "branch"
+    },
+    {
+      "id": "e3",
+      "from": "c2",
+      "to": "m2",
+      "label": "两份独立数据，改 bs 不动 t"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "为什么必须拷贝",
+      "items": [
+        "string 只读、[]byte 可写，语义冲突不能共用同一块内存",
+        "所以双向转换各分配一次、各拷贝一次，代价 O(n)",
+        "实测地址对：0x…8b7→0x…068 与 0x…078→0x…07a（地址每次运行不同）"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "高频转换的代价",
+      "items": [
+        "循环里反复 string↔[]byte 会放大分配压力，拖累 GC",
+        "拼接大量字符串用 strings.Builder，只做一次拷贝",
+        "确认只读可共用时才考虑 unsafe 零拷贝，且要非常谨慎"
+      ]
+    }
+  ]
+}

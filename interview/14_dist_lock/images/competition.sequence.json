@@ -1,0 +1,166 @@
+{
+  "schema_version": 1,
+  "diagram_type": "sequence",
+  "meta": {
+    "title": "竞争时间线：TTL 过期后迟到误删 vs value 校验（模拟 Redis 语义）",
+    "quality_profile": "showcase",
+    "locale": "zh-CN",
+    "viewBox": [
+      1080,
+      600
+    ],
+    "column_fit": "spread"
+  },
+  "participants": [
+    {
+      "id": "c2",
+      "type": "external",
+      "label": "客户端 C2",
+      "sublabel": "等待中的竞争者"
+    },
+    {
+      "id": "lock",
+      "type": "database",
+      "label": "锁服务",
+      "sublabel": "模拟 Redis：SET NX PX"
+    },
+    {
+      "id": "c1",
+      "type": "external",
+      "label": "客户端 C1",
+      "sublabel": "持锁方（迟到）"
+    }
+  ],
+  "segments": [
+    {
+      "from": 130,
+      "to": 235,
+      "label": "① C1 持锁 · 业务超时（>TTL，模拟 GC/阻塞）"
+    },
+    {
+      "from": 245,
+      "to": 385,
+      "label": "② TTL 过期 · C2 接管"
+    },
+    {
+      "from": 395,
+      "to": 530,
+      "label": "③ C1 迟到：误删 vs value 校验"
+    }
+  ],
+  "messages": [
+    {
+      "id": "c1-set",
+      "from": "c1",
+      "to": "lock",
+      "y": 165,
+      "label": "SET lock v1 NX PX 500ms",
+      "variant": "emphasis"
+    },
+    {
+      "id": "lock-ok1",
+      "from": "lock",
+      "to": "c1",
+      "y": 200,
+      "label": "OK",
+      "variant": "return"
+    },
+    {
+      "id": "lock-expire",
+      "from": "lock",
+      "to": "c2",
+      "y": 285,
+      "label": "TTL 到期，锁自动释放（expiresAt 已过，无需手动 DEL）",
+      "variant": "dashed"
+    },
+    {
+      "id": "c2-set",
+      "from": "c2",
+      "to": "lock",
+      "y": 320,
+      "label": "SET lock v2 NX PX",
+      "variant": "emphasis"
+    },
+    {
+      "id": "lock-ok2",
+      "from": "lock",
+      "to": "c2",
+      "y": 350,
+      "label": "OK（holder=v2 接管，v1 已失效）",
+      "variant": "return"
+    },
+    {
+      "id": "c1-late-del",
+      "from": "c1",
+      "to": "lock",
+      "y": 420,
+      "label": "迟到 DEL lock（不校验 → 误删!）",
+      "variant": "security"
+    },
+    {
+      "id": "c1-lua",
+      "from": "c1",
+      "to": "lock",
+      "y": 470,
+      "label": "改进：Lua 校验 value 后再 DEL",
+      "variant": "emphasis"
+    },
+    {
+      "id": "lock-deny",
+      "from": "lock",
+      "to": "c1",
+      "y": 500,
+      "label": "value 不匹配 → 拒绝删除（C2 的锁安然无恙）",
+      "variant": "return"
+    }
+  ],
+  "activations": [
+    {
+      "participant": "c1",
+      "from": 165,
+      "to": 505,
+      "type": "external"
+    },
+    {
+      "participant": "lock",
+      "from": 165,
+      "to": 505,
+      "type": "database"
+    },
+    {
+      "participant": "c2",
+      "from": 285,
+      "to": 355,
+      "type": "external"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "为什么会误删",
+      "items": [
+        "C1 业务超过 TTL，锁已转手给 C2",
+        "不校验 value 的 DEL 会删掉别人的锁",
+        "互斥被破坏：C2 以为还持锁，C3 也能获锁"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "value 校验怎么防",
+      "items": [
+        "加锁时写入唯一 value（holder 标识）",
+        "解锁用 Lua 原子执行 GET 比对 + DEL",
+        "本实验用 holder 字段模拟该语义"
+      ]
+    },
+    {
+      "dot": "orange",
+      "title": "根本缓解",
+      "items": [
+        "watchdog 后台续租，业务没跑完就延长 TTL",
+        "TTL 不可省：持锁方崩溃时唯一防线",
+        "更强保证需 Redlock 多数派或 etcd 租约"
+      ]
+    }
+  ]
+}

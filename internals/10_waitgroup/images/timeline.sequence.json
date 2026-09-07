@@ -1,0 +1,140 @@
+{
+  "schema_version": 1,
+  "diagram_type": "sequence",
+  "meta": {
+    "title": "WaitGroup 时间线：Add(3)、三次 Done 与归零唤醒",
+    "output": "images/timeline.html",
+    "quality_profile": "showcase",
+    "locale": "zh-CN",
+    "column_fit": "spread",
+    "viewBox": [
+      980,
+      560
+    ]
+  },
+  "participants": [
+    {
+      "id": "main",
+      "type": "frontend",
+      "label": "main",
+      "sublabel": "Add 与 Done"
+    },
+    {
+      "id": "wg",
+      "type": "database",
+      "label": "wg 计数",
+      "sublabel": "counter·waiters"
+    },
+    {
+      "id": "workers",
+      "type": "backend",
+      "label": "workers×3",
+      "sublabel": "各自 Wait()"
+    }
+  ],
+  "messages": [
+    {
+      "id": "s1",
+      "from": "main",
+      "to": "wg",
+      "y": 185,
+      "label": "Add(3) → counter=3",
+      "variant": "emphasis"
+    },
+    {
+      "id": "s2",
+      "from": "workers",
+      "to": "wg",
+      "y": 245,
+      "label": "Wait()×3 → waiters=3",
+      "variant": "default",
+      "note": "错峰涌入：每 2ms 多一个，睡在 sema 上"
+    },
+    {
+      "id": "s3",
+      "from": "main",
+      "to": "wg",
+      "y": 302,
+      "label": "Done → counter=2",
+      "variant": "default"
+    },
+    {
+      "id": "s4",
+      "from": "main",
+      "to": "wg",
+      "y": 350,
+      "label": "Done → counter=1",
+      "variant": "default"
+    },
+    {
+      "id": "s5",
+      "from": "main",
+      "to": "wg",
+      "y": 396,
+      "label": "Done → counter=0",
+      "variant": "emphasis",
+      "note": "归零瞬间：waiters 3→0"
+    },
+    {
+      "id": "s6",
+      "from": "wg",
+      "to": "workers",
+      "y": 436,
+      "label": "semrelease 唤醒 ×3",
+      "variant": "emphasis",
+      "note": "counter=0 → semrelease 逐个叫醒睡眠者"
+    },
+    {
+      "id": "s7",
+      "from": "workers",
+      "to": "main",
+      "y": 472,
+      "label": "3 个 Wait 全部返回",
+      "variant": "return",
+      "note": "waiters 3→0，main 从 Wait() 继续往下走"
+    }
+  ],
+  "activations": [
+    {
+      "participant": "main",
+      "from": 180,
+      "to": 478,
+      "type": "frontend"
+    },
+    {
+      "participant": "workers",
+      "from": 245,
+      "to": 478,
+      "type": "backend"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "实测时间线",
+      "items": [
+        "waiters 错峰爬升 0→1→2→3，counter 一直顶着 3",
+        "三次 Done：counter 阶梯 3→2→1→0（12/20/28ms）",
+        "counter=0 与 waiters=3 同框一瞬，随即 3 个 Wait 全部返回"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "时序规则",
+      "items": [
+        "Add 必须在 Wait 之前确认额度，Add(3) → counter=3",
+        "waiters 在 counter>0 期间不动——没到唤醒条件都睡着",
+        "计数不清零：Wait 永久阻塞 = goroutine 泄漏"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "如何验证",
+      "items": [
+        "go run main.go 第 3 节每 500µs 采样 counter/waiters",
+        "找 counter=0 且 waiters=3 的采样行（打印「清零，唤醒」）",
+        "-json 快照含完整 timeline 数组"
+      ]
+    }
+  ]
+}

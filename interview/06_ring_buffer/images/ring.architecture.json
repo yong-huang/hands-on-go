@@ -1,0 +1,104 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "Ring Buffer：固定数组 + head/tail 取模回绕",
+    "output": "images/ring.html",
+    "quality_profile": "showcase",
+    "locale": "zh-CN"
+  },
+  "components": [
+    {
+      "id": "write",
+      "type": "backend",
+      "label": "Write(val) error",
+      "sublabel": "满时返回 ErrFull · O(1)",
+      "tag": "tail=(tail+1)%cap",
+      "pos": [170, 150],
+      "size": [210, 72]
+    },
+    {
+      "id": "read",
+      "type": "backend",
+      "label": "Read() (int, bool)",
+      "sublabel": "空时返回 (0, false) · O(1)",
+      "tag": "head=(head+1)%cap",
+      "pos": [1120, 150],
+      "size": [210, 72]
+    },
+    {
+      "id": "count",
+      "type": "messagebus",
+      "label": "count 字段判满/空",
+      "sublabel": "满: count==cap · 空: count==0",
+      "tag": "消除 head==tail 歧义",
+      "pos": [620, 140],
+      "size": [260, 84]
+    },
+    {
+      "id": "buf",
+      "type": "database",
+      "label": "buf [5]int 固定数组（cap=5）",
+      "sublabel": "满时物理序 idx0..4: [60 70 30 40 50]",
+      "tag": "head=2 · tail=2 · len=5",
+      "pos": [545, 420],
+      "size": [410, 86]
+    }
+  ],
+  "connections": [
+    {
+      "id": "e_wcount",
+      "from": "write",
+      "to": "count",
+      "label": "写入前判满"
+    },
+    {
+      "id": "e_rcount",
+      "from": "read",
+      "to": "count",
+      "label": "读出前判空"
+    },
+    {
+      "id": "e_wbuf",
+      "from": "write",
+      "to": "buf",
+      "label": "写 buf[tail] 后 tail 回绕",
+      "variant": "emphasis"
+    },
+    {
+      "id": "e_bufr",
+      "from": "buf",
+      "to": "read",
+      "label": "读 buf[head] 后 head 回绕"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "心智模型",
+      "items": [
+        "固定数组 + head/tail 两个指针，读写下标都取模回绕",
+        "head 指向下一个读出的位置，tail 指向下一个写入的位置",
+        "count 记录元素个数：判满 count==cap，判空 count==0"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "满/空判别与覆盖",
+      "items": [
+        "head==tail 时可能是满也可能是空，必须靠 count（或浪费一槽）区分",
+        "本实现满时返回 ErrFull 拒绝写入，不覆盖旧数据",
+        "覆盖语义变体：满时仍写 tail 并同步前移 head，适合日志/采样场景"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "如何验证",
+      "items": [
+        "go run ring_buffer.go：cap=5 写 10/20/30 → head=0 tail=3 len=3",
+        "回绕实测：写 50 后 tail 从 4 回绕到 0；读空后 head=2 tail=2 len=0",
+        "满后再写：Write(99) → err: ring buffer is full，指针不动"
+      ]
+    }
+  ]
+}

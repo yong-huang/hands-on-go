@@ -1,0 +1,162 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "分布式锁架构：多客户端竞争一把锁（模拟 Redis 语义）",
+    "quality_profile": "showcase",
+    "locale": "zh-CN",
+    "viewBox": [
+      1160,
+      620
+    ]
+  },
+  "components": [
+    {
+      "id": "c1",
+      "type": "external",
+      "label": "客户端 C1",
+      "sublabel": "SET NX PX 获取",
+      "pos": [
+        50,
+        160
+      ],
+      "size": [
+        150,
+        70
+      ]
+    },
+    {
+      "id": "c2",
+      "type": "external",
+      "label": "客户端 C2",
+      "sublabel": "同 key 竞争",
+      "pos": [
+        50,
+        470
+      ],
+      "size": [
+        150,
+        70
+      ]
+    },
+    {
+      "id": "mgr",
+      "type": "backend",
+      "label": "锁管理器",
+      "sublabel": "模拟 Redis：mu 保护原子检查-设置",
+      "pos": [
+        360,
+        260
+      ],
+      "size": [
+        200,
+        80
+      ]
+    },
+    {
+      "id": "store",
+      "type": "database",
+      "label": "锁注册表 sync.Map",
+      "sublabel": "key → lockEntry",
+      "pos": [
+        680,
+        260
+      ],
+      "size": [
+        200,
+        80
+      ]
+    },
+    {
+      "id": "entry",
+      "type": "backend",
+      "label": "lockEntry",
+      "sublabel": "holder 唯一 value + expiresAt TTL",
+      "pos": [
+        960,
+        160
+      ],
+      "size": [
+        170,
+        70
+      ]
+    },
+    {
+      "id": "cleanup",
+      "type": "messagebus",
+      "label": "cleanup 协程",
+      "sublabel": "每 1s 扫描过期锁（TTL 兜底）",
+      "pos": [
+        960,
+        470
+      ],
+      "size": [
+        200,
+        70
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "id": "c1-acquire",
+      "from": "c1",
+      "to": "mgr",
+      "label": "SET NX PX 成功",
+      "variant": "emphasis"
+    },
+    {
+      "id": "c2-reject",
+      "from": "c2",
+      "to": "mgr",
+      "label": "NX 已存在 → 拒绝",
+      "variant": "dashed"
+    },
+    {
+      "id": "mgr-store",
+      "from": "mgr",
+      "to": "store",
+      "label": "原子 check-then-store"
+    },
+    {
+      "id": "store-entry",
+      "from": "store",
+      "to": "entry",
+      "label": "记录持有者与过期时间",
+      "fromSide": "top",
+      "toSide": "bottom",
+      "labelDy": 9
+    },
+    {
+      "id": "store-scan",
+      "from": "store",
+      "to": "cleanup",
+      "label": "遍历 expiresAt"
+    },
+    {
+      "id": "cleanup-del",
+      "from": "cleanup",
+      "to": "mgr",
+      "label": "删除已过期条目",
+      "variant": "dashed"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "互斥三要素",
+      "items": [
+        "NX：key 已存在则获取失败，保证互斥",
+        "TTL（PX）：持锁方崩溃后自动过期，防死锁",
+        "唯一 value（holder）：解锁前校验，防误删他人锁"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "模拟说明",
+      "items": [
+        "本实验为内存模拟（sync.Map + Mutex），未连接真实 Redis",
+        "cleanup 协程对应 Redis 的键过期机制"
+      ]
+    }
+  ]
+}

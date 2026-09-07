@@ -1,0 +1,202 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "sync.Once：done 原子位快路径 + Mutex 慢路径",
+    "output": "images/once.html",
+    "quality_profile": "showcase",
+    "locale": "zh-CN",
+    "viewBox": [
+      1240,
+      520
+    ]
+  },
+  "components": [
+    {
+      "id": "done_field",
+      "type": "backend",
+      "label": "done atomic.Bool",
+      "sublabel": "首个有效字段 · 1 字节",
+      "tag": "热路径只读它",
+      "pos": [
+        100,
+        110
+      ],
+      "size": [
+        220,
+        76
+      ]
+    },
+    {
+      "id": "m_field",
+      "type": "backend",
+      "label": "m Mutex",
+      "sublabel": "慢路径串行化",
+      "tag": "只有首次才碰锁",
+      "pos": [
+        100,
+        290
+      ],
+      "size": [
+        220,
+        76
+      ]
+    },
+    {
+      "id": "do_call",
+      "type": "frontend",
+      "label": "once.Do(f)",
+      "sublabel": "所有并发调用的入口",
+      "tag": "exp1：100 并发",
+      "pos": [
+        470,
+        100
+      ],
+      "size": [
+        200,
+        74
+      ]
+    },
+    {
+      "id": "fast",
+      "type": "backend",
+      "label": "done.Load()",
+      "sublabel": "已置位 → 直接返回",
+      "tag": "实测 0.00 ms",
+      "pos": [
+        770,
+        100
+      ],
+      "size": [
+        200,
+        74
+      ]
+    },
+    {
+      "id": "slow",
+      "type": "backend",
+      "label": "doSlow",
+      "sublabel": "m.Lock → 二次查 done → f()",
+      "tag": "双重检查",
+      "pos": [
+        770,
+        300
+      ],
+      "size": [
+        200,
+        74
+      ]
+    },
+    {
+      "id": "fbox",
+      "type": "database",
+      "label": "f() 只执行一次",
+      "sublabel": "抢到锁的那一个",
+      "tag": "实测执行 1/100",
+      "pos": [
+        1050,
+        300
+      ],
+      "size": [
+        170,
+        74
+      ]
+    },
+    {
+      "id": "store",
+      "type": "backend",
+      "label": "done.Store(true)",
+      "sublabel": "f 返回之后才置位",
+      "tag": "release 语义",
+      "pos": [
+        1050,
+        100
+      ],
+      "size": [
+        170,
+        74
+      ]
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "type Once struct（noCopy 零宽占位）",
+      "wraps": [
+        "done_field",
+        "m_field"
+      ],
+      "pad": 18
+    }
+  ],
+  "connections": [
+    {
+      "from": "do_call",
+      "to": "fast",
+      "label": "每次必经的原子读"
+    },
+    {
+      "from": "fast",
+      "to": "slow",
+      "label": "done==0 才进慢路径",
+      "variant": "emphasis",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelAt": [
+        870,
+        200
+      ]
+    },
+    {
+      "from": "slow",
+      "to": "fbox",
+      "label": "抢到锁 → 执行 f"
+    },
+    {
+      "from": "fbox",
+      "to": "store",
+      "label": "f 返回后",
+      "fromSide": "top",
+      "toSide": "bottom"
+    },
+    {
+      "from": "store",
+      "to": "fast",
+      "label": "后续调用全走这里",
+      "variant": "dashed",
+      "labelAt": [
+        1010,
+        190
+      ]
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "心智模型",
+      "items": [
+        "Once = done 原子位（快路径判据）+ Mutex（慢路径串行化）",
+        "快路径：一次原子 Load，无锁无等待，内联在每个调用点",
+        "慢路径：抢 mutex → 再查 done → 跑 f → 返回后才 Store(true)"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "实测（Go 1.26.5）",
+      "items": [
+        "exp1：100 个 goroutine 并发 Do，f 实际执行 1 次",
+        "exp2：f 睡 30ms，4 个慢路径调用者平均等 28.9 ms",
+        "exp2：之后的快路径调用只花 0.00 ms；exp3：16/16 看到 f 的副作用"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "错误实现",
+      "items": [
+        "CAS(false,true) 就执行：只保证「跑一次」",
+        "不保证「所有 Do 返回时 f 已结束」——第二个调用者不等 f",
+        "Mutex + f 返回后才置位，两个保证缺一不可"
+      ]
+    }
+  ]
+}

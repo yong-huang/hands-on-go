@@ -1,0 +1,223 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "sync.Mutex 的 state 字：一个 int32 装下四种状态",
+    "output": "images/state.html",
+    "quality_profile": "showcase",
+    "locale": "zh-CN"
+  },
+  "components": [
+    {
+      "id": "b_locked",
+      "type": "backend",
+      "label": "bit0 locked",
+      "sublabel": "1 = 锁被持有",
+      "tag": "state & 1",
+      "pos": [
+        130,
+        150
+      ],
+      "size": [
+        180,
+        84
+      ]
+    },
+    {
+      "id": "b_woken",
+      "type": "backend",
+      "label": "bit1 woken",
+      "sublabel": "1 = 已唤醒等待者",
+      "tag": "state & 2",
+      "pos": [
+        400,
+        150
+      ],
+      "size": [
+        180,
+        84
+      ]
+    },
+    {
+      "id": "b_starv",
+      "type": "backend",
+      "label": "bit2 starving",
+      "sublabel": "1 = 饥饿模式",
+      "tag": "state & 4",
+      "pos": [
+        670,
+        150
+      ],
+      "size": [
+        180,
+        84
+      ]
+    },
+    {
+      "id": "b_wait",
+      "type": "backend",
+      "label": "bits3+ waiters",
+      "sublabel": "排队 goroutine 计数（29 位）",
+      "tag": "state >> 3",
+      "pos": [
+        940,
+        150
+      ],
+      "size": [
+        190,
+        84
+      ]
+    },
+    {
+      "id": "sema",
+      "type": "messagebus",
+      "label": "sema uint32",
+      "sublabel": "信号量：等待者 park / 被唤醒",
+      "tag": "Mutex 第二个字段",
+      "pos": [
+        130,
+        470
+      ],
+      "size": [
+        200,
+        84
+      ]
+    },
+    {
+      "id": "ex0",
+      "type": "external",
+      "label": "state = 0",
+      "sublabel": "新建未锁 · 全 0",
+      "tag": "locked=false",
+      "pos": [
+        420,
+        470
+      ],
+      "size": [
+        180,
+        84
+      ]
+    },
+    {
+      "id": "ex1",
+      "type": "external",
+      "label": "state = 1",
+      "sublabel": "Lock() 后 · 置 bit0",
+      "tag": "locked=true",
+      "pos": [
+        690,
+        470
+      ],
+      "size": [
+        180,
+        84
+      ]
+    },
+    {
+      "id": "ex25",
+      "type": "external",
+      "label": "state = 25",
+      "sublabel": "持锁 + 3 人排队",
+      "tag": "locked=true · waiters=3",
+      "pos": [
+        950,
+        470
+      ],
+      "size": [
+        170,
+        84
+      ]
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "state int32：一个字编码四种信息",
+      "wraps": [
+        "b_locked",
+        "b_woken",
+        "b_starv",
+        "b_wait"
+      ],
+      "pad": 16
+    },
+    {
+      "kind": "region",
+      "label": "sema：park 与唤醒的信号量",
+      "wraps": [
+        "sema"
+      ],
+      "pad": 16
+    },
+    {
+      "kind": "region",
+      "label": "实测解码示例（main.go 第 1 节）",
+      "wraps": [
+        "ex0",
+        "ex1",
+        "ex25"
+      ],
+      "pad": 16
+    }
+  ],
+  "connections": [
+    {
+      "from": "ex0",
+      "to": "ex1",
+      "label": "Lock() 置 bit0"
+    },
+    {
+      "from": "ex1",
+      "to": "ex25",
+      "label": "3 人阻塞入队"
+    },
+    {
+      "from": "b_locked",
+      "to": "ex1",
+      "label": "state & 1 = 1",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "from": "b_wait",
+      "to": "ex25",
+      "label": "1 | 3<<3 = 25",
+      "variant": "emphasis",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelAt": [
+        1035,
+        352
+      ]
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "一个字装下四种信息",
+      "items": [
+        "bit0 locked / bit1 woken / bit2 starving / bits3+ waiters",
+        "位号越小越关键，读写全靠位运算，一次 CAS 即可原子流转",
+        "实测 state=25 = locked(1) | waiters(3)<<3，与打印一致"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "自旋与饥饿（实测）",
+      "items": [
+        "自旋窗口仅几微秒：2µs 采样时 waiters 已爬到 4~8",
+        "等待者累计 >1ms → starving 置位，unlock FIFO 直通最老等待者",
+        "实测约 6ms 处首次饥饿，之后随竞争反复进出"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "如何验证",
+      "items": [
+        "go run main.go 第 1 节：state=0/1/25 与解码逐位对照",
+        "影子结构 muShadow 与 Mutex 前 8 字节对齐才能 unsafe 读",
+        "读 state 必须用 atomic.LoadInt32，普通读会触发数据竞争"
+      ]
+    }
+  ]
+}

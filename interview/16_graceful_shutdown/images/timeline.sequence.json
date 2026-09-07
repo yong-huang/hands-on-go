@@ -1,0 +1,97 @@
+{
+  "schema_version": 1,
+  "diagram_type": "sequence",
+  "meta": {
+    "title": "一次真实 drain 的时间线（demo 实测）",
+    "output": "images/timeline.html",
+    "quality_profile": "showcase",
+    "locale": "zh-CN",
+    "viewBox": [
+      960,
+      600
+    ],
+    "column_fit": "spread"
+  },
+  "participants": [
+    {
+      "id": "demo",
+      "type": "external",
+      "label": "demo/main",
+      "sublabel": "发信号"
+    },
+    {
+      "id": "req1",
+      "type": "frontend",
+      "label": "req-1",
+      "sublabel": "1.5s"
+    },
+    {
+      "id": "req2",
+      "type": "frontend",
+      "label": "req-2",
+      "sublabel": "4s"
+    },
+    {
+      "id": "drain",
+      "type": "backend",
+      "label": "drain",
+      "sublabel": "wg.Wait+10s 兜底"
+    }
+  ],
+  "messages": [
+    {
+      "from": "demo",
+      "to": "req1",
+      "y": 190,
+      "label": "t=0 启动",
+      "variant": "default"
+    },
+    {
+      "from": "demo",
+      "to": "req2",
+      "y": 228,
+      "label": "t=0 启动",
+      "variant": "default"
+    },
+    {
+      "from": "req1",
+      "to": "drain",
+      "y": 266,
+      "label": "t=1.5 完成 · wg.Done",
+      "variant": "default"
+    },
+    {
+      "from": "demo",
+      "to": "drain",
+      "y": 304,
+      "label": "t=3 SIGINT · 开始 drain（上限 10s）",
+      "variant": "emphasis"
+    },
+    {
+      "from": "req2",
+      "to": "drain",
+      "y": 342,
+      "label": "t=4 完成 · wg.Wait() 返回",
+      "variant": "default"
+    },
+    {
+      "from": "drain",
+      "to": "demo",
+      "y": 380,
+      "label": "clean shutdown · elapsed≈1s",
+      "variant": "emphasis",
+      "note": "远未触到 10s 超时"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "怎么读",
+      "items": [
+        "t=3 信号到达，drain 只等 1s",
+        "req-2 是裸 goroutine，没被取消",
+        "卡死的真请求才会触 10s 强制"
+      ]
+    }
+  ]
+}

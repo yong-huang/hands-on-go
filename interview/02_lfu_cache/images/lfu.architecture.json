@@ -1,0 +1,188 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "LFU Cache：频次桶 + 双向链表，Get/Put 均 O(1)",
+    "output": "images/lfu.html",
+    "quality_profile": "showcase",
+    "locale": "zh-CN"
+  },
+  "components": [
+    {
+      "id": "cache",
+      "type": "backend",
+      "label": "LFUCache",
+      "sublabel": "cap=3 · minFreq=1 · size=3",
+      "tag": "O(1) Get/Put",
+      "pos": [
+        50,
+        230
+      ],
+      "size": [
+        180,
+        80
+      ]
+    },
+    {
+      "id": "items",
+      "type": "database",
+      "label": "items map[int]*item",
+      "sublabel": "key → 条目（含 freq）",
+      "tag": "O(1) 定位",
+      "pos": [
+        300,
+        235
+      ],
+      "size": [
+        190,
+        70
+      ]
+    },
+    {
+      "id": "b1",
+      "type": "messagebus",
+      "label": "freq=1 双向链表",
+      "sublabel": "front [5:50] back",
+      "tag": "minFreq 桶",
+      "pos": [
+        570,
+        235
+      ],
+      "size": [
+        190,
+        70
+      ]
+    },
+    {
+      "id": "b2",
+      "type": "messagebus",
+      "label": "freq=2 双向链表",
+      "sublabel": "front [4:40] back",
+      "tag": "4 比 5 更旧",
+      "pos": [
+        840,
+        235
+      ],
+      "size": [
+        190,
+        70
+      ]
+    },
+    {
+      "id": "b3",
+      "type": "messagebus",
+      "label": "freq=3 双向链表",
+      "sublabel": "front [1:10] back",
+      "tag": "热点最不易淘汰",
+      "pos": [
+        1110,
+        235
+      ],
+      "size": [
+        190,
+        70
+      ]
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "freqList map[int]*list.List · back = 淘汰对象",
+      "wraps": [
+        "b1",
+        "b2",
+        "b3"
+      ],
+      "pad": 18
+    }
+  ],
+  "connections": [
+    {
+      "from": "cache",
+      "to": "items",
+      "label": "Get/Put 先查 map",
+      "labelAt": [
+        285,
+        150
+      ]
+    },
+    {
+      "from": "items",
+      "to": "b1",
+      "label": "Put 新 key：PushFront 入 freq=1",
+      "labelAt": [
+        660,
+        150
+      ]
+    },
+    {
+      "from": "b1",
+      "to": "b2",
+      "label": "Get 命中：freq+1 移桶",
+      "labelAt": [
+        920,
+        150
+      ]
+    },
+    {
+      "from": "b2",
+      "to": "b3",
+      "label": "再命中：freq+1 继续升桶",
+      "labelAt": [
+        1190,
+        150
+      ]
+    },
+    {
+      "from": "b1",
+      "to": "cache",
+      "label": "容量满：淘汰 minFreq 桶 Back()",
+      "variant": "emphasis",
+      "fromSide": "bottom",
+      "toSide": "bottom",
+      "via": [
+        [
+          665,
+          430
+        ],
+        [
+          140,
+          430
+        ]
+      ],
+      "labelAt": [
+        400,
+        438
+      ]
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "心智模型",
+      "items": [
+        "两层索引：items 按 key 定位，freqList 按频率分层",
+        "同频内嵌 LRU：front=最近访问，back=最久访问",
+        "淘汰取 freqList[minFreq].Back()，全链路无遍历"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "minFreq 只在两处变化",
+      "items": [
+        "插入新 item：minFreq = 1（本次演示 size=3 时即如此）",
+        "旧桶被搬空且 minFreq 指向它：minFreq++",
+        "Get(1)x2、Get(2)x1 后 freq=1 桶只剩 [3:30]，正是淘汰目标"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "手写易错点",
+      "items": [
+        "item.elem 必须随 PushFront 更新，否则下次 Remove 崩溃",
+        "旧桶搬空要 delete(freqList, old)，否则 Show 打印空桶",
+        "Put 已存在的 key 只改 value + 提频，不算新插入、不触发淘汰"
+      ]
+    }
+  ]
+}

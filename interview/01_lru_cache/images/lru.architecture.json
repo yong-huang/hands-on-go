@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "LRU Cache = map[key→node] + 双向链表（头尾哨兵）",
+    "locale": "zh-CN",
+    "quality_profile": "showcase",
+    "viewBox": [1240, 520]
+  },
+  "components": [
+    { "id": "caller", "type": "external", "label": "调用方", "sublabel": "Get(key) / Put(key, v)", "pos": [60, 230], "size": [170, 70] },
+    { "id": "m", "type": "database", "label": "map[int]*list.Element", "sublabel": "O(1) 哈希定位节点", "pos": [400, 60], "size": [230, 70] },
+    { "id": "front", "type": "backend", "label": "Front · MRU", "sublabel": "最近使用 [3:30]", "pos": [480, 300], "size": [180, 70] },
+    { "id": "mid", "type": "backend", "label": "链表节点", "sublabel": "[2:20] prev ⇄ next", "pos": [730, 300], "size": [180, 70] },
+    { "id": "back", "type": "backend", "label": "Back · LRU", "sublabel": "最久未使用 [1:10]", "tag": "满容量时被淘汰", "pos": [980, 300], "size": [180, 70] }
+  ],
+  "connections": [
+    { "id": "lookup", "from": "caller", "to": "m", "label": "① Get/Put 查 key", "variant": "emphasis" },
+    { "id": "touch", "from": "m", "to": "front", "label": "② 命中 MoveToFront", "fromSide": "bottom", "toSide": "top" },
+    { "id": "pushfront", "from": "caller", "to": "front", "label": "新 key PushFront", "variant": "dashed" },
+    { "id": "delete", "from": "back", "to": "m", "label": "满容量 Remove+delete", "variant": "security" },
+    { "id": "link1", "from": "front", "to": "mid", "label": "prev ⇄ next" },
+    { "id": "link2", "from": "mid", "to": "back" }
+  ]
+}

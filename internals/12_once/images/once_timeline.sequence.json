@@ -1,0 +1,141 @@
+{
+  "schema_version": 1,
+  "diagram_type": "sequence",
+  "meta": {
+    "title": "并发首次调用：1 个执行 f，其余持锁等待，之后直达快路径",
+    "output": "images/once_timeline.html",
+    "quality_profile": "showcase",
+    "locale": "zh-CN",
+    "viewBox": [
+      980,
+      560
+    ],
+    "column_fit": "spread"
+  },
+  "participants": [
+    {
+      "id": "callers",
+      "type": "external",
+      "label": "并发调用者",
+      "sublabel": "exp1：100 个 goroutine"
+    },
+    {
+      "id": "once",
+      "type": "backend",
+      "label": "sync.Once",
+      "sublabel": "done + m"
+    },
+    {
+      "id": "fbox",
+      "type": "frontend",
+      "label": "f()",
+      "sublabel": "只执行一次的初始化"
+    }
+  ],
+  "segments": [
+    {
+      "from": 165,
+      "to": 355,
+      "label": "首次并发窗口：1 个跑 f，其余持锁等待"
+    },
+    {
+      "from": 375,
+      "to": 465,
+      "label": "f 已结束（done=1）：快路径直通"
+    }
+  ],
+  "messages": [
+    {
+      "id": "m1",
+      "from": "callers",
+      "to": "once",
+      "y": 195,
+      "label": "并发 Do（同一瞬间）",
+      "variant": "emphasis"
+    },
+    {
+      "id": "m2",
+      "from": "once",
+      "to": "fbox",
+      "y": 240,
+      "label": "锁胜者进入 f（done 此刻 = false）",
+      "variant": "emphasis"
+    },
+    {
+      "id": "m3",
+      "from": "fbox",
+      "to": "once",
+      "y": 285,
+      "label": "f 返回，此刻才 done.Store(true)",
+      "variant": "emphasis"
+    },
+    {
+      "id": "m4",
+      "from": "once",
+      "to": "callers",
+      "y": 330,
+      "label": "等锁的其余调用者全部放行",
+      "variant": "return",
+      "note": "实测慢路径平均等 28.9 ms（f 睡 30ms）"
+    },
+    {
+      "id": "m5",
+      "from": "callers",
+      "to": "once",
+      "y": 400,
+      "label": "之后的每次 Do"
+    },
+    {
+      "id": "m6",
+      "from": "once",
+      "to": "callers",
+      "y": 440,
+      "label": "done==1 直接返回",
+      "variant": "return",
+      "note": "实测 0.00 ms，一趟 Load"
+    }
+  ],
+  "activations": [
+    {
+      "participant": "once",
+      "from": 195,
+      "to": 445,
+      "type": "backend"
+    },
+    {
+      "participant": "fbox",
+      "from": 240,
+      "to": 290,
+      "type": "frontend"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "时间线怎么读",
+      "items": [
+        "f 开始时 done=false：置位发生在 f 返回之后",
+        "慢路径全部阻塞在 mutex 上，直到 f 结束才放行",
+        "done=1 之后的调用走快路径，一次原子 Load 返回"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "实测对比（exp2，f 睡 30ms）",
+      "items": [
+        "4 个慢路径调用者平均等待 28.9 ms（数值随调度漂移）",
+        "之后的快路径调用 0.00 ms",
+        "exp3：16 个 goroutine 在 Do 返回后 16/16 读到 f 写入的 result=42"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "release 语义",
+      "items": [
+        "done.Store(true) 是 release-store：f 的全部写入先于置位",
+        "done.Load 是 acquire-load：读到 1 必能读到 f 的副作用",
+        "所以「看到 done=1」与「看到 f 的结果」原子地绑定"
+      ]
+    }
+  ]
+}

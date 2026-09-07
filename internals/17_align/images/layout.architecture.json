@@ -1,0 +1,140 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "struct 字段对齐布局：顺序声明 24 B vs 重排 16 B",
+    "output": "images/layout.html",
+    "quality_profile": "showcase",
+    "locale": "zh-CN"
+  },
+  "components": [
+    {
+      "id": "bad_a",
+      "type": "backend",
+      "label": "a int8",
+      "sublabel": "@0 · 1B",
+      "tag": "对齐 1",
+      "pos": [80, 150],
+      "size": [130, 64]
+    },
+    {
+      "id": "bad_b",
+      "type": "backend",
+      "label": "b int64",
+      "sublabel": "@8 · 8B",
+      "tag": "前置 pad 7",
+      "pos": [300, 150],
+      "size": [130, 64]
+    },
+    {
+      "id": "bad_c",
+      "type": "backend",
+      "label": "c int8",
+      "sublabel": "@16 · 1B",
+      "tag": "尾 pad 7",
+      "pos": [520, 150],
+      "size": [130, 64]
+    },
+    {
+      "id": "good_b",
+      "type": "backend",
+      "label": "b int64",
+      "sublabel": "@0 · 8B",
+      "tag": "放最前",
+      "pos": [520, 380],
+      "size": [130, 64]
+    },
+    {
+      "id": "good_a",
+      "type": "backend",
+      "label": "a int8",
+      "sublabel": "@8 · 1B",
+      "tag": "紧贴",
+      "pos": [740, 380],
+      "size": [130, 64]
+    },
+    {
+      "id": "good_c",
+      "type": "backend",
+      "label": "c int8",
+      "sublabel": "@9 · 1B",
+      "tag": "尾 pad 6",
+      "pos": [960, 380],
+      "size": [130, 64]
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "badOrder{a int8, b int64, c int8} — 顺序声明 · 实测 24 B",
+      "wraps": ["bad_a", "bad_b", "bad_c"],
+      "pad": 18
+    },
+    {
+      "kind": "region",
+      "label": "goodOrder{b int64, a int8, c int8} — 重排 · 实测 16 B",
+      "wraps": ["good_b", "good_a", "good_c"],
+      "pad": 18
+    }
+  ],
+  "connections": [
+    {
+      "from": "bad_a",
+      "to": "bad_b",
+      "label": "垫 7B 到 8 对齐"
+    },
+    {
+      "from": "bad_b",
+      "to": "bad_c",
+      "label": "偏移 16"
+    },
+    {
+      "from": "bad_c",
+      "to": "good_b",
+      "label": "重排：只改声明顺序，省 8 B",
+      "variant": "emphasis",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelDy": 24
+    },
+    {
+      "from": "good_b",
+      "to": "good_a",
+      "label": "紧贴 @8"
+    },
+    {
+      "from": "good_a",
+      "to": "good_c",
+      "label": "紧贴 @9"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "对齐规则",
+      "items": [
+        "字段偏移必须是自身对齐值的倍数：int64 只能落在 8 的倍数上",
+        "总大小向上补到最大成员对齐值的倍数：10B 内容 → 16B",
+        "指针 / string / slice / map 在 64 位平台都是 8 对齐"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "8 B 差在哪",
+      "items": [
+        "两组字段内容同为 10B：badOrder 填充 14B，goodOrder 只填 6B",
+        "int8 抢在 int64 前面，把 8 对齐位顶走 7 字节",
+        "100 万个 badOrder 元素就多占约 8 MB 内存"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "如何验证",
+      "items": [
+        "go run main.go 打印每个字段的 Offsetof 与 pad",
+        "unsafe.Sizeof / Alignof / Offsetof 三件套逐一核对",
+        "go vet 的 fieldalignment 可自动报告可优化的字段顺序"
+      ]
+    }
+  ]
+}

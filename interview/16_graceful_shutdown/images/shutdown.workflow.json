@@ -1,0 +1,146 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "Graceful Shutdown：信号 → drain → 超时兜底",
+    "output": "images/shutdown.html",
+    "quality_profile": "showcase",
+    "locale": "zh-CN",
+    "legend": {
+      "mode": "hidden"
+    }
+  },
+  "lanes": [
+    {
+      "id": "sig",
+      "label": "信号侧"
+    },
+    {
+      "id": "drain",
+      "label": "Drain（等活跃请求）"
+    },
+    {
+      "id": "srv",
+      "label": "http.Server"
+    }
+  ],
+  "mainPath": [
+    "signal",
+    "drain",
+    "shutdown",
+    "exit"
+  ],
+  "nodes": [
+    {
+      "id": "signal",
+      "lane": "sig",
+      "col": 0,
+      "type": "external",
+      "label": "SIGINT 到达",
+      "sublabel": "Ctrl-C 或 demo 定时器",
+      "width": 132
+    },
+    {
+      "id": "drain",
+      "lane": "drain",
+      "col": 1,
+      "type": "backend",
+      "label": "select 二选一",
+      "sublabel": "wg.Wait() 完成 vs ctx 10s 超时",
+      "width": 132
+    },
+    {
+      "id": "forced",
+      "lane": "drain",
+      "col": 2,
+      "type": "security",
+      "label": "超时强制",
+      "sublabel": "DeadlineExceeded",
+      "width": 132
+    },
+    {
+      "id": "shutdown",
+      "lane": "srv",
+      "col": 2,
+      "type": "messagebus",
+      "label": "srv.Shutdown(ctx)",
+      "sublabel": "关 listener · 等活跃连接",
+      "width": 132
+    },
+    {
+      "id": "exit",
+      "lane": "srv",
+      "col": 3,
+      "type": "frontend",
+      "label": "进程退出",
+      "sublabel": "本 demo：clean · elapsed≈1s",
+      "width": 132
+    }
+  ],
+  "edges": [
+    {
+      "id": "e1",
+      "from": "signal",
+      "to": "drain",
+      "label": "触发 drain",
+      "variant": "emphasis"
+    },
+    {
+      "id": "e2",
+      "from": "drain",
+      "to": "shutdown",
+      "label": "清零或超时后",
+      "variant": "emphasis"
+    },
+    {
+      "id": "e3",
+      "from": "drain",
+      "to": "forced",
+      "label": "请求卡死时",
+      "variant": "dashed",
+      "role": "error"
+    },
+    {
+      "id": "e4",
+      "from": "forced",
+      "to": "exit",
+      "label": "强杀残留连接",
+      "variant": "dashed"
+    },
+    {
+      "id": "e5",
+      "from": "shutdown",
+      "to": "exit",
+      "variant": "default"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "心智模型",
+      "items": [
+        "Shutdown 只关 listener，不杀活跃连接",
+        "middleware 里 wg.Add/Done 追踪每个请求",
+        "ctx 超时会传播到 r.Context()"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "本 demo 的坑",
+      "items": [
+        "两个\"请求\"是裸 goroutine，不走 HTTP",
+        "req-2 注释写 will be cancelled，实际正常跑完",
+        "真实取消只发生在真 HTTP 请求上"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "如何验证",
+      "items": [
+        "go run graceful_shutdown.go 约 4.2s 结束",
+        "信号后打印 clean shutdown elapsed≈1s",
+        "请求卡死才会看到 timeout after 10s"
+      ]
+    }
+  ]
+}

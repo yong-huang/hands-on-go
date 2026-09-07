@@ -1,0 +1,175 @@
+{
+  "schema_version": 1,
+  "diagram_type": "dataflow",
+  "meta": {
+    "title": "Read4K 读取管线：源 Reader → 4096/4 字节缓冲分块 → 逐块处理 → 计数聚合",
+    "output": "images/read4k.html",
+    "viewBox": [
+      1068,
+      620
+    ],
+    "animation": "trace",
+    "quality_profile": "showcase",
+    "locale": "zh-CN",
+    "legend": {
+      "mode": "hidden"
+    }
+  },
+  "stages": [
+    {
+      "label": "数据源"
+    },
+    {
+      "label": "Read4 分块填充"
+    },
+    {
+      "label": "内部缓冲（跨调用保持）"
+    },
+    {
+      "label": "逐块处理"
+    },
+    {
+      "label": "聚合返回"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "file",
+      "type": "database",
+      "label": "fileData",
+      "sublabel": "45 字节测试文件",
+      "stage": 0,
+      "row": 1
+    },
+    {
+      "id": "read4",
+      "type": "backend",
+      "label": "Read4(buf4)",
+      "sublabel": "每次最多读 4 字节",
+      "stage": 1,
+      "row": 1,
+      "tag": "filePos 推进"
+    },
+    {
+      "id": "buf",
+      "type": "messagebus",
+      "label": "buf [4]byte",
+      "sublabel": "Reader 内部缓冲区",
+      "stage": 2,
+      "row": 0,
+      "tag": "结构体字段"
+    },
+    {
+      "id": "cursor",
+      "type": "database",
+      "label": "pos / size",
+      "sublabel": "读游标与有效字节数",
+      "stage": 2,
+      "row": 2,
+      "tag": "跨调用保持"
+    },
+    {
+      "id": "read",
+      "type": "backend",
+      "label": "Read(buf, n)",
+      "sublabel": "优先消费缓冲区 pos < size",
+      "stage": 3,
+      "row": 1,
+      "tag": "pos++/total++"
+    },
+    {
+      "id": "eof",
+      "type": "security",
+      "label": "eof = true",
+      "sublabel": "Read4 返回 0 时置位",
+      "stage": 1,
+      "row": 2,
+      "tag": "防重复读"
+    },
+    {
+      "id": "out",
+      "type": "frontend",
+      "label": "输出 buf[0..total)",
+      "sublabel": "实测 Read(3)×5：Hel/lo,/…",
+      "stage": 4,
+      "row": 1,
+      "tag": "调用方缓冲"
+    },
+    {
+      "id": "total",
+      "type": "external",
+      "label": "返回 total",
+      "sublabel": "实测 Read(100) → 45",
+      "stage": 4,
+      "row": 0,
+      "tag": "实际读取数"
+    }
+  ],
+  "flows": [
+    {
+      "from": "file",
+      "to": "read4",
+      "label": "原始字符流",
+      "variant": "emphasis"
+    },
+    {
+      "from": "read4",
+      "to": "buf",
+      "label": "≤4 字节/次",
+      "variant": "emphasis"
+    },
+    {
+      "from": "buf",
+      "to": "read",
+      "label": "剩余字节",
+      "variant": "emphasis"
+    },
+    {
+      "from": "cursor",
+      "to": "read",
+      "label": "游标回读 pos<size",
+      "variant": "default"
+    },
+    {
+      "from": "read4",
+      "to": "eof",
+      "label": "返回 0 → 置位",
+      "variant": "security",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelDy": 30
+    },
+    {
+      "from": "read",
+      "to": "out",
+      "label": "逐字节复制",
+      "variant": "emphasis"
+    },
+    {
+      "from": "out",
+      "to": "total",
+      "label": "计数聚合",
+      "variant": "emphasis"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "amber",
+      "title": "跨调用状态",
+      "items": [
+        "buf/pos/size/eof 全部存在 Reader 结构体里",
+        "Read(3) 只取走 3 字节，第 4 字节留在 buf 等下次",
+        "单调用版本不需要缓存，多调用版本必须缓存"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "边界处理",
+      "items": [
+        "Read4 返回 0 → eof=true，之后直接返回 0",
+        "Read(100) 超过文件长度：只返回实际 45 字节",
+        "缓冲区有剩余时绝不调用 Read4，避免丢字"
+      ]
+    }
+  ]
+}

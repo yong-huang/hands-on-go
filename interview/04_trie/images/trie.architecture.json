@@ -1,0 +1,248 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "Trie 前缀树：children map[rune] + isEnd，一条查询路径",
+    "output": "images/trie.html",
+    "quality_profile": "showcase",
+    "locale": "zh-CN",
+    "legend": {
+      "mode": "hidden"
+    }
+  },
+  "components": [
+    {
+      "id": "root",
+      "type": "backend",
+      "label": "root",
+      "sublabel": "不存字符",
+      "tag": "children map[rune]",
+      "pos": [
+        120,
+        300
+      ],
+      "size": [
+        140,
+        64
+      ]
+    },
+    {
+      "id": "n_a",
+      "type": "backend",
+      "label": "a",
+      "sublabel": "isEnd=false",
+      "pos": [
+        320,
+        300
+      ],
+      "size": [
+        120,
+        64
+      ]
+    },
+    {
+      "id": "n_p1",
+      "type": "backend",
+      "label": "p",
+      "sublabel": "isEnd=false",
+      "pos": [
+        520,
+        300
+      ],
+      "size": [
+        120,
+        64
+      ]
+    },
+    {
+      "id": "n_p2",
+      "type": "backend",
+      "label": "p",
+      "sublabel": "isEnd=true",
+      "tag": "单词 app 到此",
+      "pos": [
+        720,
+        300
+      ],
+      "size": [
+        120,
+        64
+      ]
+    },
+    {
+      "id": "n_l",
+      "type": "backend",
+      "label": "l",
+      "sublabel": "isEnd=false",
+      "pos": [
+        920,
+        300
+      ],
+      "size": [
+        120,
+        64
+      ]
+    },
+    {
+      "id": "n_e",
+      "type": "backend",
+      "label": "e",
+      "sublabel": "isEnd=true",
+      "tag": "apple",
+      "pos": [
+        1130,
+        140
+      ],
+      "size": [
+        110,
+        64
+      ]
+    },
+    {
+      "id": "n_y",
+      "type": "backend",
+      "label": "y",
+      "sublabel": "isEnd=true",
+      "tag": "apply",
+      "pos": [
+        1130,
+        380
+      ],
+      "size": [
+        110,
+        64
+      ]
+    },
+    {
+      "id": "n_i",
+      "type": "backend",
+      "label": "i → cation…",
+      "sublabel": "isEnd=true",
+      "tag": "application",
+      "pos": [
+        1110,
+        620
+      ],
+      "size": [
+        140,
+        64
+      ]
+    },
+    {
+      "id": "n_b",
+      "type": "backend",
+      "label": "b → an…",
+      "sublabel": "banana / band / bank",
+      "tag": "另一棵子树",
+      "pos": [
+        340,
+        620
+      ],
+      "size": [
+        160,
+        64
+      ]
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "主路径：Autocomplete(\"app\", 5) 先 findNode 走到 p(isEnd=true)",
+      "wraps": [
+        "root",
+        "n_a",
+        "n_p1",
+        "n_p2",
+        "n_l"
+      ],
+      "pad": 20
+    },
+    {
+      "kind": "region",
+      "label": "DFS 分支：从 l 继续，按字典序收集 e / i / y 三个单词结尾",
+      "wraps": [
+        "n_e",
+        "n_y",
+        "n_i"
+      ],
+      "pad": 20
+    }
+  ],
+  "connections": [
+    {
+      "from": "root",
+      "to": "n_a",
+      "label": "'a'",
+      "variant": "emphasis"
+    },
+    {
+      "from": "n_a",
+      "to": "n_p1",
+      "label": "'p'",
+      "variant": "emphasis"
+    },
+    {
+      "from": "n_p1",
+      "to": "n_p2",
+      "label": "'p'",
+      "variant": "emphasis"
+    },
+    {
+      "from": "n_p2",
+      "to": "n_l",
+      "label": "'l'",
+      "variant": "emphasis"
+    },
+    {
+      "from": "n_l",
+      "to": "n_e",
+      "label": "'e'"
+    },
+    {
+      "from": "n_l",
+      "to": "n_y",
+      "label": "'y'",
+      "labelDx": -30
+    },
+    {
+      "from": "n_l",
+      "to": "n_i",
+      "label": "'i'"
+    },
+    {
+      "from": "root",
+      "to": "n_b",
+      "label": "'b'",
+      "variant": "dashed"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "心智模型",
+      "items": [
+        "每个节点是一个 map[rune]*TrieNode：字符进 map，isEnd 标记单词结尾",
+        "公共前缀只存一份：app 被 apple / apply / application 共享",
+        "root 不存字符，实际字符从 root.children 开始"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "Search 与 StartsWith 的差别",
+      "items": [
+        "Search(\"app\")=true：路径存在且终点 isEnd=true",
+        "Search(\"appl\")=false：路径存在但 isEnd=false，不是完整单词",
+        "StartsWith(\"ap\")=true：只要 findNode 路径存在即可，不查 isEnd"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "查询/补全怎么走",
+      "items": [
+        "findNode 沿 children 逐字符下探：Search / StartsWith 均为 O(L)",
+        "Autocomplete(\"app\",5)=[app, apple, application, apply]（真实输出）",
+        "图里省略了 apt 与 application 的中段字符，实际树上它们各占节点"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,158 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "SIGTERM 优雅退出：内核信号 → Notify 的 channel → 业务 goroutine",
+    "output": "images/signal.html",
+    "animation": "trace",
+    "quality_profile": "showcase",
+    "locale": "zh-CN",
+    "legend": {
+      "mode": "hidden"
+    }
+  },
+  "lanes": [
+    {
+      "id": "kernel",
+      "label": "内核"
+    },
+    {
+      "id": "runtime",
+      "label": "Go runtime · os/signal 内部"
+    },
+    {
+      "id": "app",
+      "label": "业务进程"
+    }
+  ],
+  "mainPath": [
+    "sig",
+    "deliver",
+    "sighandler",
+    "sigchan",
+    "biz",
+    "cleanup"
+  ],
+  "nodes": [
+    {
+      "id": "sig",
+      "lane": "kernel",
+      "col": 0,
+      "type": "external",
+      "label": "SIGTERM / SIGINT",
+      "sublabel": "kill 命令 · Ctrl-C",
+      "width": 132
+    },
+    {
+      "id": "deliver",
+      "lane": "kernel",
+      "col": 1,
+      "type": "backend",
+      "label": "内核投递",
+      "sublabel": "把信号递给 Go 进程",
+      "width": 132
+    },
+    {
+      "id": "sighandler",
+      "lane": "runtime",
+      "col": 2,
+      "type": "backend",
+      "label": "runtime 信号处理",
+      "sublabel": "os/signal 内部循环",
+      "tag": "查 Notify 注册表",
+      "width": 132
+    },
+    {
+      "id": "sigchan",
+      "lane": "runtime",
+      "col": 3,
+      "type": "messagebus",
+      "label": "Notify 的 channel",
+      "sublabel": "chan os.Signal",
+      "tag": "带缓冲=1 防丢",
+      "width": 132
+    },
+    {
+      "id": "biz",
+      "lane": "app",
+      "col": 4,
+      "type": "backend",
+      "label": "业务 goroutine",
+      "sublabel": "select { <-sigCh: }",
+      "width": 132
+    },
+    {
+      "id": "cleanup",
+      "lane": "app",
+      "col": 5,
+      "type": "backend",
+      "label": "优雅退出",
+      "sublabel": "关连接 · 冲日志 · exit 0",
+      "width": 132
+    }
+  ],
+  "edges": [
+    {
+      "id": "sig-deliver",
+      "from": "sig",
+      "to": "deliver",
+      "label": "信号到达"
+    },
+    {
+      "id": "deliver-handler",
+      "from": "deliver",
+      "to": "sighandler",
+      "label": "转交 runtime"
+    },
+    {
+      "id": "handler-chan",
+      "from": "sighandler",
+      "to": "sigchan",
+      "label": "向已注册 channel 发送",
+      "variant": "emphasis"
+    },
+    {
+      "id": "chan-biz",
+      "from": "sigchan",
+      "to": "biz",
+      "label": "<-sigCh 收到",
+      "variant": "emphasis"
+    },
+    {
+      "id": "biz-cleanup",
+      "from": "biz",
+      "to": "cleanup",
+      "label": "清理后退出",
+      "variant": "emphasis"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "心智模型",
+      "items": [
+        "signal.Notify 把异步硬中断包装成普通 channel 消息",
+        "runtime 收到信号后按注册表找到 channel 再发送",
+        "业务代码只消费 channel，不碰任何信号处理器"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "实测（go run main.go）",
+      "items": [
+        "程序 300ms 后给自己发 SIGINT（syscall.Kill）",
+        "handler goroutine 收到 1 次，channel 化处理",
+        "channel 容量 1：信号到、消费未到的窗口也不丢"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "坑与规则",
+      "items": [
+        "不 Notify：SIGINT/SIGTERM 默认处置就是终止进程",
+        "已 Notify 的信号不再触发默认处置",
+        "同一 channel 重复 Notify 是叠加注册，signal.Stop 才解除"
+      ]
+    }
+  ]
+}

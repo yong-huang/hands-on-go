@@ -1,0 +1,204 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "多生产者 → 缓冲 channel → 多消费者：阻塞即背压",
+    "output": "images/pc.html",
+    "quality_profile": "showcase",
+    "locale": "zh-CN"
+  },
+  "components": [
+    {
+      "id": "p1",
+      "type": "backend",
+      "label": "Producer 1",
+      "sublabel": "17 items · 1000..1016",
+      "tag": "goroutine",
+      "pos": [
+        130,
+        130
+      ],
+      "size": [
+        200,
+        68
+      ]
+    },
+    {
+      "id": "p2",
+      "type": "backend",
+      "label": "Producer 2",
+      "sublabel": "17 items · 2000..2016",
+      "tag": "goroutine",
+      "pos": [
+        130,
+        300
+      ],
+      "size": [
+        200,
+        68
+      ]
+    },
+    {
+      "id": "p3",
+      "type": "backend",
+      "label": "Producer 3",
+      "sublabel": "16 items · 3000..3015",
+      "tag": "goroutine",
+      "pos": [
+        130,
+        470
+      ],
+      "size": [
+        200,
+        68
+      ]
+    },
+    {
+      "id": "queue",
+      "type": "messagebus",
+      "label": "chan int (cap=10)",
+      "sublabel": "有界队列：满则发送阻塞",
+      "tag": "实测 50/50 不丢不重",
+      "pos": [
+        640,
+        280
+      ],
+      "size": [
+        240,
+        88
+      ]
+    },
+    {
+      "id": "main",
+      "type": "backend",
+      "label": "main goroutine",
+      "sublabel": "prodWg.Wait → close → consWg.Wait",
+      "tag": "关闭顺序不可颠倒",
+      "pos": [
+        640,
+        540
+      ],
+      "size": [
+        240,
+        76
+      ]
+    },
+    {
+      "id": "c1",
+      "type": "backend",
+      "label": "Consumer 1",
+      "sublabel": "for item := range queue",
+      "tag": "goroutine",
+      "pos": [
+        1080,
+        190
+      ],
+      "size": [
+        200,
+        68
+      ]
+    },
+    {
+      "id": "c2",
+      "type": "backend",
+      "label": "Consumer 2",
+      "sublabel": "for item := range queue",
+      "tag": "goroutine",
+      "pos": [
+        1080,
+        400
+      ],
+      "size": [
+        200,
+        68
+      ]
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "生产侧：queue <- item",
+      "wraps": [
+        "p1",
+        "p2",
+        "p3"
+      ],
+      "pad": 18
+    },
+    {
+      "kind": "region",
+      "label": "消费侧：排空后 range 退出",
+      "wraps": [
+        "c1",
+        "c2"
+      ],
+      "pad": 18
+    }
+  ],
+  "connections": [
+    {
+      "from": "p1",
+      "to": "queue",
+      "label": "queue <- item"
+    },
+    {
+      "from": "p2",
+      "to": "queue",
+      "label": "满则阻塞（背压）",
+      "variant": "emphasis",
+      "labelDy": -18,
+      "labelDx": -70
+    },
+    {
+      "from": "p3",
+      "to": "queue",
+      "label": "queue <- item"
+    },
+    {
+      "from": "queue",
+      "to": "c1",
+      "label": "空则阻塞"
+    },
+    {
+      "from": "queue",
+      "to": "c2",
+      "label": "<-queue / range"
+    },
+    {
+      "from": "main",
+      "to": "queue",
+      "label": "close(queue)",
+      "variant": "emphasis"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "心智模型",
+      "items": [
+        "make(chan int, 10)：带缓冲 channel 就是有界队列，天然线程安全",
+        "队列满：queue <- item 的 goroutine 挂起，这就是背压（backpressure）",
+        "队列空：消费者在 range 上挂起，取走元素后生产者被唤醒"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "优雅关闭顺序",
+      "items": [
+        "① prodWg.Wait() 等所有生产者写完",
+        "② close(queue)：之后消费者排空剩余数据、range 自动退出",
+        "③ consWg.Wait() 等消费者处理完，④ 打印统计",
+        "顺序颠倒：生产者还在写就 close 会 panic"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "实测数据（go run producer_consumer.go）",
+      "items": [
+        "3 生产者 × (17/17/16) = 50 个 item，Total produced: 50",
+        "Total consumed: 50 —— 关闭顺序正确保证不丢数据",
+        "单个 item 的消费顺序每次运行不同（并发调度随机）"
+      ]
+    }
+  ]
+}

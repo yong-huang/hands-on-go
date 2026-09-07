@@ -1,0 +1,234 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "装箱与 nil 陷阱：接口里装的是拷贝，非 nil 看类型字",
+    "output": "images/trap.html",
+    "quality_profile": "showcase",
+    "locale": "zh-CN"
+  },
+  "components": [
+    {
+      "id": "x",
+      "type": "frontend",
+      "label": "x := 5",
+      "sublabel": "&x = 0x…0d0",
+      "tag": "原变量",
+      "pos": [
+        110,
+        120
+      ],
+      "size": [
+        230,
+        76
+      ]
+    },
+    {
+      "id": "ex",
+      "type": "backend",
+      "label": "ex := interface{}(x)",
+      "sublabel": "data=0x…7e8 ≠ &x",
+      "tag": "值类型：装箱拷贝",
+      "pos": [
+        470,
+        120
+      ],
+      "size": [
+        230,
+        76
+      ]
+    },
+    {
+      "id": "boxed",
+      "type": "database",
+      "label": "堆上的 int 副本",
+      "sublabel": "x=100 后 ex 仍为 5（实测不变）",
+      "tag": "两份独立内存",
+      "pos": [
+        830,
+        120
+      ],
+      "size": [
+        230,
+        76
+      ]
+    },
+    {
+      "id": "yp",
+      "type": "frontend",
+      "label": "yp := &x",
+      "sublabel": "yp = 0x…0d0",
+      "tag": "取指针",
+      "pos": [
+        110,
+        260
+      ],
+      "size": [
+        230,
+        76
+      ]
+    },
+    {
+      "id": "ey",
+      "type": "backend",
+      "label": "ey := interface{}(yp)",
+      "sublabel": "data = yp = 0x…0d0",
+      "tag": "指针：直存不拷贝",
+      "pos": [
+        470,
+        260
+      ],
+      "size": [
+        230,
+        76
+      ]
+    },
+    {
+      "id": "ptrd",
+      "type": "database",
+      "label": "data 就是原指针",
+      "sublabel": "无额外分配、也没有任何副本",
+      "tag": "改 *yp 即改 ey 里的值",
+      "pos": [
+        830,
+        260
+      ],
+      "size": [
+        230,
+        76
+      ]
+    },
+    {
+      "id": "nile",
+      "type": "backend",
+      "label": "e = (*Dog)(nil)",
+      "sublabel": "_type=0x…5a0 · data=0x0",
+      "tag": "e != nil",
+      "pos": [
+        110,
+        400
+      ],
+      "size": [
+        230,
+        76
+      ]
+    },
+    {
+      "id": "tcheck",
+      "type": "backend",
+      "label": "e == nil ?",
+      "sublabel": "→ false（实测）",
+      "tag": "判定看 _type",
+      "pos": [
+        470,
+        400
+      ],
+      "size": [
+        230,
+        76
+      ]
+    },
+    {
+      "id": "truenil",
+      "type": "database",
+      "label": "真 nil 接口 e2",
+      "sublabel": "_type=0x0 · data=0x0 · 两字全 0",
+      "tag": "两字全 0 才是 nil",
+      "pos": [
+        830,
+        400
+      ],
+      "size": [
+        230,
+        76
+      ]
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "装箱语义：data 指向哪",
+      "wraps": [
+        "x",
+        "ex",
+        "boxed",
+        "yp",
+        "ey",
+        "ptrd"
+      ],
+      "pad": 18
+    },
+    {
+      "kind": "region",
+      "label": "nil 陷阱",
+      "wraps": [
+        "nile",
+        "tcheck",
+        "truenil"
+      ],
+      "pad": 16
+    }
+  ],
+  "connections": [
+    {
+      "from": "x",
+      "to": "ex",
+      "label": "传入接口"
+    },
+    {
+      "from": "ex",
+      "to": "boxed",
+      "label": "data 指向副本",
+      "variant": "emphasis"
+    },
+    {
+      "from": "yp",
+      "to": "ey",
+      "label": "传入接口"
+    },
+    {
+      "from": "ey",
+      "to": "ptrd",
+      "label": "data 直存"
+    },
+    {
+      "from": "nile",
+      "to": "tcheck",
+      "label": "接口判 nil"
+    },
+    {
+      "from": "tcheck",
+      "to": "truenil",
+      "label": "对比真 nil"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "rose",
+      "title": "nil 陷阱为什么危险",
+      "items": [
+        "装了 nil 指针的接口 != nil：_type 还记着 *Dog，data 才是 0",
+        "典型场景：返回具体指针类型的 err，err == nil 恒为 false",
+        "正确姿势：函数返回 interface 类型本身；判断前先想清动态类型"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "装箱的代价",
+      "items": [
+        "值类型每装一次接口就拷贝一次，大结构体还可能触发堆分配",
+        "热路径上传大结构体建议直接传指针（data 直存，不再拷贝）",
+        "改原变量不影响已装箱的副本：实测 x=100 后 ex 仍是 5"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "如何验证",
+      "items": [
+        "go run main.go 看第 2 节（装箱）与第 5 节（nil 陷阱）",
+        "e == nil 打印 false 的同时 data 确实是 0x0——非 nil 看的是 _type",
+        "地址每次运行不同，== 判定与「是否为 0」才是结论"
+      ]
+    }
+  ]
+}

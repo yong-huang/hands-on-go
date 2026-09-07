@@ -1,0 +1,222 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "逃逸判定分诊：指针/闭包/大对象/全局可达 → 堆，不外泄 → 栈",
+    "output": "images/escape.html",
+    "quality_profile": "showcase",
+    "locale": "zh-CN",
+    "viewBox": [
+      1300,
+      620
+    ]
+  },
+  "components": [
+    {
+      "id": "src",
+      "type": "backend",
+      "label": "编译器逃逸分析",
+      "sublabel": "go build -gcflags=-m",
+      "tag": "看指针逃多远",
+      "pos": [
+        80,
+        260
+      ],
+      "size": [
+        210,
+        80
+      ]
+    },
+    {
+      "id": "ret_ptr",
+      "type": "database",
+      "label": "返回局部变量指针",
+      "sublabel": "指针出了函数作用域",
+      "tag": "20 万次 +1.6 MB",
+      "pos": [
+        450,
+        80
+      ],
+      "size": [
+        230,
+        70
+      ]
+    },
+    {
+      "id": "closure",
+      "type": "database",
+      "label": "闭包捕获局部变量",
+      "sublabel": "闭包逃逸，被捕获者一起逃",
+      "tag": "20 万次 +3.2 MB",
+      "pos": [
+        740,
+        80
+      ],
+      "size": [
+        230,
+        70
+      ]
+    },
+    {
+      "id": "bigobj",
+      "type": "database",
+      "label": "超大对象（64KB）",
+      "sublabel": "栈帧放不下",
+      "tag": "20 万次 +13.1 GB",
+      "pos": [
+        1030,
+        80
+      ],
+      "size": [
+        200,
+        70
+      ]
+    },
+    {
+      "id": "global",
+      "type": "database",
+      "label": "包级变量可达",
+      "sublabel": "存进全局，处处可及",
+      "tag": "20 万次 +1.6 MB",
+      "pos": [
+        450,
+        210
+      ],
+      "size": [
+        230,
+        70
+      ]
+    },
+    {
+      "id": "iface",
+      "type": "database",
+      "label": "interface 动态派生",
+      "sublabel": "接口值转手逃出 → 堆",
+      "tag": "直接消费则 0 分配",
+      "pos": [
+        740,
+        210
+      ],
+      "size": [
+        230,
+        70
+      ]
+    },
+    {
+      "id": "local_only",
+      "type": "backend",
+      "label": "纯局部使用",
+      "sublabel": "值不出函数",
+      "tag": "+0 B",
+      "pos": [
+        450,
+        460
+      ],
+      "size": [
+        230,
+        70
+      ]
+    },
+    {
+      "id": "readonly",
+      "type": "backend",
+      "label": "只读指针调用",
+      "sublabel": "读穿函数不外泄（p does not escape）",
+      "tag": "+0 B",
+      "pos": [
+        740,
+        460
+      ],
+      "size": [
+        230,
+        70
+      ]
+    },
+    {
+      "id": "small_val",
+      "type": "backend",
+      "label": "按值返回小对象",
+      "sublabel": "寄存器/栈上解决",
+      "tag": "+0 B",
+      "pos": [
+        1030,
+        460
+      ],
+      "size": [
+        200,
+        70
+      ]
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "逃逸 → 堆：每次调用 newobject，TotalAlloc 线性上涨",
+      "wraps": [
+        "ret_ptr",
+        "closure",
+        "bigobj",
+        "global",
+        "iface"
+      ],
+      "pad": 20
+    },
+    {
+      "kind": "region",
+      "label": "不逃逸 → 栈：TotalAlloc 不涨，零 GC 压力",
+      "wraps": [
+        "local_only",
+        "readonly",
+        "small_val"
+      ],
+      "pad": 20
+    }
+  ],
+  "connections": [
+    {
+      "from": "src",
+      "to": "ret_ptr",
+      "label": "指针逃出作用域 → 堆",
+      "variant": "emphasis",
+      "fromSide": "top",
+      "toSide": "left"
+    },
+    {
+      "from": "src",
+      "to": "local_only",
+      "label": "值不外泄 → 栈",
+      "variant": "emphasis",
+      "fromSide": "bottom",
+      "toSide": "left"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "判定口诀",
+      "items": [
+        "指针出函数 / 闭包 / 大对象 / 全局可达 → 堆",
+        "只在本函数、只读传递、按值返回 → 栈",
+        "加 //go:noinline 各场景才现出原形（内联会收窄逃逸面）"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "interface 的反直觉",
+      "items": [
+        "编译器对 makeIface 写 escapes to heap，但运行时实测 +0 B",
+        "装箱数据没逃出调用者帧时被栈上化，TotalAlloc 纹丝不动",
+        "结论：-m 只是线索，接口值转手逃出去才真上堆，以实测为准"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "实测（20 万次调用）",
+      "items": [
+        "逃逸组：+1.6 MB / +3.2 MB / +13.1 GB / +1.6 MB",
+        "栈上组：+0 B / +0 B / +0 B，一次堆分配都没有",
+        "验证：go build -gcflags=-m main.go 对照 go run main.go"
+      ]
+    }
+  ]
+}

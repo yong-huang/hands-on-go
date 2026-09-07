@@ -1,0 +1,156 @@
+{
+  "schema_version": 1,
+  "diagram_type": "dataflow",
+  "meta": {
+    "title": "令牌桶限流：恒速补充 → 桶封顶 → 请求取令牌",
+    "locale": "zh-CN",
+    "quality_profile": "showcase",
+    "viewBox": [
+      960,
+      560
+    ],
+    "legend": {
+      "mode": "hidden"
+    }
+  },
+  "stages": [
+    {
+      "label": "恒速补充"
+    },
+    {
+      "label": "令牌桶"
+    },
+    {
+      "label": "请求取令牌"
+    },
+    {
+      "label": "放行结果"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "clock",
+      "type": "backend",
+      "label": "时间流逝 refill()",
+      "sublabel": "tokens += rate × elapsed",
+      "tag": "速率 rate 个/秒",
+      "stage": 0,
+      "row": 1
+    },
+    {
+      "id": "bucket",
+      "type": "database",
+      "label": "TokenBucket 桶",
+      "sublabel": "容量上限 burst，初始装满",
+      "tag": "容量 burst=20",
+      "stage": 1,
+      "row": 1
+    },
+    {
+      "id": "overflow",
+      "type": "external",
+      "label": "溢出令牌丢弃",
+      "sublabel": "tokens = min(tokens, burst)",
+      "tag": "不会无限累积",
+      "stage": 1,
+      "row": 2
+    },
+    {
+      "id": "allow",
+      "type": "backend",
+      "label": "Allow() 取令牌",
+      "sublabel": "mu.Lock → refill → tokens--",
+      "tag": "sync.Mutex 原子",
+      "stage": 2,
+      "row": 1
+    },
+    {
+      "id": "allowed",
+      "type": "frontend",
+      "label": "放行",
+      "sublabel": "tokens ≥ 1，消费 1 个",
+      "tag": "实测 20/100",
+      "stage": 3,
+      "row": 0
+    },
+    {
+      "id": "rejected",
+      "type": "frontend",
+      "label": "拒绝",
+      "sublabel": "tokens < 1，直接返回 false",
+      "tag": "实测 80/100",
+      "stage": 3,
+      "row": 2
+    }
+  ],
+  "flows": [
+    {
+      "id": "refill-in",
+      "from": "clock",
+      "to": "bucket",
+      "label": "按 elapsed 补充令牌",
+      "classification": "恒速输入",
+      "variant": "emphasis"
+    },
+    {
+      "id": "cap-trim",
+      "from": "bucket",
+      "to": "overflow",
+      "label": "超过 burst 截断",
+      "classification": "丢弃多余",
+      "variant": "dashed",
+      "labelDy": 24
+    },
+    {
+      "id": "take-token",
+      "from": "bucket",
+      "to": "allow",
+      "label": "桶内有令牌",
+      "classification": "消费",
+      "variant": "emphasis"
+    },
+    {
+      "id": "pass",
+      "from": "allow",
+      "to": "allowed",
+      "label": "返回 true",
+      "classification": "成功"
+    },
+    {
+      "id": "deny",
+      "from": "allow",
+      "to": "rejected",
+      "label": "返回 false",
+      "classification": "限流"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "emerald",
+      "title": "两个参数定一切",
+      "items": [
+        "rate 决定长期平均速率：每秒补充多少个令牌",
+        "burst 决定突发容忍度：桶最多装多少个令牌",
+        "新桶初始装满 burst 个，所以并发Demo 100 个请求放行了 20 个"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "Lazy 补充，不用定时器",
+      "items": [
+        "没有后台 goroutine 定时加水，而是在每次 Allow() 时按 now-last 一次性补齐",
+        "elapsed≤0 时不推进 last，避免重复补充",
+        "闲置再久也只补到 burst 封顶，不会攒出超量突发"
+      ]
+    },
+    {
+      "dot": "orange",
+      "title": "主路径怎么看",
+      "items": [
+        "主线：时间驱动补充 → 桶 → Allow() → 放行",
+        "虚线旁支：桶满截断与令牌不足拒绝，都是边界情况",
+        "demo 实测：rate=10/s、burst=20 时 100 个并发请求恰好 20 放行 80 拒绝"
+      ]
+    }
+  ]
+}

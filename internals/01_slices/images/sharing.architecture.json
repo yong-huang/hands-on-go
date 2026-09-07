@@ -1,0 +1,145 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "Slice 共享底层数组：三个视图，一份数据",
+    "output": "images/sharing.html",
+    "quality_profile": "showcase",
+    "locale": "zh-CN"
+  },
+  "components": [
+    {
+      "id": "h_orig",
+      "type": "backend",
+      "label": "original",
+      "sublabel": "len=5 · cap=10",
+      "tag": "data +0B",
+      "pos": [
+        150,
+        130
+      ],
+      "size": [
+        150,
+        64
+      ]
+    },
+    {
+      "id": "h_a",
+      "type": "backend",
+      "label": "sliceA",
+      "sublabel": "len=3 · cap=9",
+      "tag": "data +8B",
+      "pos": [
+        425,
+        130
+      ],
+      "size": [
+        150,
+        64
+      ]
+    },
+    {
+      "id": "h_b",
+      "type": "backend",
+      "label": "sliceB",
+      "sublabel": "len=3 · cap=8",
+      "tag": "data +16B",
+      "pos": [
+        700,
+        130
+      ],
+      "size": [
+        150,
+        64
+      ]
+    },
+    {
+      "id": "arr",
+      "type": "database",
+      "label": "底层数组 int×10",
+      "sublabel": "[1 999 21 31 41 · · · · ·]",
+      "tag": "仅 5 个在用",
+      "pos": [
+        400,
+        360
+      ],
+      "size": [
+        200,
+        68
+      ]
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "slice header = {data, len, cap}（每个 24 字节）",
+      "wraps": [
+        "h_orig",
+        "h_a",
+        "h_b"
+      ],
+      "pad": 18
+    },
+    {
+      "kind": "region",
+      "label": "堆：唯一一份数据",
+      "wraps": [
+        "arr"
+      ],
+      "pad": 16
+    }
+  ],
+  "connections": [
+    {
+      "from": "h_orig",
+      "to": "arr",
+      "label": "data 偏移 +0B"
+    },
+    {
+      "from": "h_a",
+      "to": "arr",
+      "label": "data 偏移 +8B",
+      "variant": "emphasis",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelAt": [
+        500,
+        277
+      ]
+    },
+    {
+      "from": "h_b",
+      "to": "arr",
+      "label": "data 偏移 +16B"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "心智模型",
+      "items": [
+        "slice 变量只是 24 字节的头，自身不存元素",
+        "s[a:b] 不复制数据：data 加偏移，len/cap 重新算",
+        "cap 相应缩短：original[1:4] 的 cap = 10-1 = 9"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "别名陷阱",
+      "items": [
+        "sliceA[0] 就是 original[1]：写 999 后 original[1] 同步变 999",
+        "sliceB 看的是 original[2..4]，本次打印 sliceB[0] 仍是 21",
+        "窗口重叠的元素才是共享的：改 sliceA[1] 才会影响 sliceB[0]"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "如何验证",
+      "items": [
+        "go run main.go 看「地址关系」：偏移 8 / 16 字节",
+        "看「修改前后」打印：sliceA[0] 与 original[1] 同时变 999",
+        "地址每次运行不同，偏移 +8B/+16B 永远不变"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,187 @@
+{
+  "schema_version": 1,
+  "diagram_type": "lifecycle",
+  "meta": {
+    "title": "三色标记状态机：白→灰→黑，写屏障拦截黑指白",
+    "output": "images/tricolor.html",
+    "quality_profile": "showcase",
+    "locale": "zh-CN",
+    "viewBox": [
+      1080,
+      620
+    ]
+  },
+  "lanes": [
+    {
+      "id": "main",
+      "label": "对象颜色"
+    },
+    {
+      "id": "phase",
+      "label": "GC 阶段（停顿两段）"
+    }
+  ],
+  "states": [
+    {
+      "id": "white",
+      "type": "start",
+      "label": "白色",
+      "sublabel": "尚未确认可达",
+      "tag": "清扫时被回收",
+      "lane": "main",
+      "col": 0,
+      "step": "01"
+    },
+    {
+      "id": "grey",
+      "type": "active",
+      "label": "灰色",
+      "sublabel": "扫到即入灰色队列",
+      "tag": "子指针待扫",
+      "lane": "main",
+      "col": 1,
+      "step": "02"
+    },
+    {
+      "id": "black",
+      "type": "success",
+      "label": "黑色",
+      "sublabel": "扫描完成 · 确认存活",
+      "tag": "绝不回收",
+      "lane": "main",
+      "col": 2,
+      "step": "03"
+    },
+    {
+      "id": "swept",
+      "type": "failure",
+      "label": "清扫回收",
+      "sublabel": "标记结束仍为白 → 被收走",
+      "tag": "仿真：无屏障 C 被误收",
+      "lane": "main",
+      "col": 3,
+      "step": "04"
+    },
+    {
+      "id": "stw1",
+      "type": "waiting",
+      "label": "STW ①",
+      "sublabel": "开启写屏障 · 扫根",
+      "lane": "phase",
+      "col": 0,
+      "width": 118
+    },
+    {
+      "id": "conc",
+      "type": "active",
+      "label": "并发标记",
+      "sublabel": "与业务 goroutine 并行",
+      "lane": "phase",
+      "col": 1,
+      "width": 118
+    },
+    {
+      "id": "stw2",
+      "type": "waiting",
+      "label": "STW ②",
+      "sublabel": "标记终止 · 关写屏障",
+      "tag": "实测停顿 0.10~0.45 ms",
+      "lane": "phase",
+      "col": 2,
+      "width": 118
+    }
+  ],
+  "transitions": [
+    {
+      "id": "t_mark",
+      "from": "white",
+      "to": "grey",
+      "label": "被黑色对象扫到",
+      "variant": "emphasis",
+      "labelAt": [
+        171,
+        108
+      ]
+    },
+    {
+      "id": "t_scan",
+      "from": "grey",
+      "to": "black",
+      "label": "子指针扫完",
+      "variant": "emphasis",
+      "labelAt": [
+        479,
+        108
+      ]
+    },
+    {
+      "id": "t_wb",
+      "from": "black",
+      "to": "grey",
+      "label": "写屏障：黑指白 → 立刻染灰",
+      "variant": "emphasis",
+      "labelAt": [
+        325,
+        108
+      ]
+    },
+    {
+      "id": "t_sweep",
+      "from": "white",
+      "to": "swept",
+      "variant": "default",
+      "route": "bottom-channel"
+    },
+    {
+      "id": "t_start",
+      "from": "stw1",
+      "to": "conc",
+      "label": "进入并发标记",
+      "variant": "default",
+      "labelAt": [
+        479,
+        352
+      ]
+    },
+    {
+      "id": "t_end",
+      "from": "conc",
+      "to": "stw2",
+      "label": "标记终止",
+      "variant": "default",
+      "labelAt": [
+        633,
+        352
+      ]
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "标记怎么推进",
+      "items": [
+        "每从灰色队列取出一个对象：变黑，再把它的白色子对象染灰",
+        "灰色队列耗尽即标记结束，仍白的对象被清扫回收",
+        "多标只是浪费，少标会回收活对象——三色不变式是底线"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "写屏障为什么不可省",
+      "items": [
+        "并发变异会让黑对象新增指向白对象的边，破坏不变式",
+        "无屏障仿真实测：幸存 [root A B]，C 被误回收（悬垂引用）",
+        "有屏障实测：黑指白的瞬间把 C 染灰，幸存 [root A B C]"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "真实 GC 实测（exp2）",
+      "items": [
+        "6 轮 runtime.GC()：停顿 0.10~0.45 ms（STW 时间，随机器漂移）",
+        "HeapObjects 2000227 → 226：清扫并发进行，白对象全收",
+        "停顿看标记工作量，回收量看清扫战果，两个指标分开看"
+      ]
+    }
+  ]
+}

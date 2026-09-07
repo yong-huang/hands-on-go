@@ -1,0 +1,183 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "runtime/trace 使用流：录制 → 落盘 → go tool trace 分析",
+    "output": "images/trace.html",
+    "quality_profile": "showcase",
+    "locale": "zh-CN",
+    "animation": "trace",
+    "viewBox": [
+      1180,
+      528
+    ],
+    "legend": {
+      "mode": "hidden"
+    }
+  },
+  "lanes": [
+    {
+      "id": "main",
+      "label": "主流程（go 命令）"
+    },
+    {
+      "id": "blk",
+      "label": "阻塞型（I/O · chan）"
+    },
+    {
+      "id": "cpu",
+      "label": "CPU 密集"
+    }
+  ],
+  "mainPath": [
+    "start",
+    "chant",
+    "stop",
+    "tool",
+    "views"
+  ],
+  "nodes": [
+    {
+      "id": "start",
+      "lane": "main",
+      "col": 0,
+      "type": "backend",
+      "label": "trace.Start(f)",
+      "sublabel": "开启记录 → trace*.out",
+      "width": 132
+    },
+    {
+      "id": "cput",
+      "lane": "cpu",
+      "col": 1,
+      "type": "backend",
+      "label": "cpuTask ×4",
+      "sublabel": "忙循环算质数，占住 P",
+      "width": 132
+    },
+    {
+      "id": "stop",
+      "lane": "main",
+      "col": 3,
+      "type": "backend",
+      "label": "trace.Stop",
+      "sublabel": "wg.Wait 之后再 Stop 落盘",
+      "width": 132
+    },
+    {
+      "id": "tool",
+      "lane": "main",
+      "col": 4,
+      "type": "backend",
+      "label": "go tool trace 解析",
+      "sublabel": "离线解析 trace.out 事件流",
+      "width": 132
+    },
+    {
+      "id": "views",
+      "lane": "main",
+      "col": 5,
+      "type": "frontend",
+      "label": "三种分析视图",
+      "sublabel": "浏览器打开：时间线/GC/阻塞",
+      "width": 132
+    },
+    {
+      "id": "iot",
+      "lane": "blk",
+      "col": 1,
+      "type": "backend",
+      "label": "ioTask ×4",
+      "sublabel": "真读文件 + Sleep 40ms 让 P",
+      "width": 132
+    },
+    {
+      "id": "chant",
+      "lane": "blk",
+      "col": 2,
+      "type": "messagebus",
+      "label": "chan 交接 ×8",
+      "sublabel": "无缓冲交接唤醒对端",
+      "width": 132
+    }
+  ],
+  "edges": [
+    {
+      "id": "start-cpu",
+      "from": "start",
+      "to": "cput",
+      "variant": "default",
+      "role": "branch"
+    },
+    {
+      "id": "start-io",
+      "from": "start",
+      "to": "iot",
+      "variant": "default",
+      "role": "branch"
+    },
+    {
+      "id": "start-chan",
+      "from": "start",
+      "to": "chant",
+      "variant": "emphasis"
+    },
+    {
+      "id": "chan-stop",
+      "from": "chant",
+      "to": "stop",
+      "variant": "dashed",
+      "role": "branch"
+    },
+    {
+      "id": "stop-tool",
+      "from": "stop",
+      "to": "tool",
+      "variant": "emphasis"
+    },
+    {
+      "id": "tool-views",
+      "from": "tool",
+      "to": "views",
+      "variant": "default"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "录制边界",
+      "items": [
+        "只有 Start/Stop 之间的事件进 buffer",
+        "Stop 必须排在 wg.Wait 之后，否则文件不完整",
+        "临时文件用 os.CreateTemp 获取可写路径"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "实测结论",
+      "items": [
+        "无缓冲 chan 交接是调度延迟大户：chansend1 常占 1/3 以上",
+        "CPU 密集任务全程自占 P，sched 延迟近乎为 0",
+        "I/O 的 40ms 睡眠藏在墙钟里，sched profile 对它近乎盲视"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "两种查看方式",
+      "items": [
+        "go tool trace trace.out：浏览器交互式时间线/GC/阻塞视图",
+        "纯脚本：go tool trace -pprof=sched 输出二进制 pprof，再喂 go tool pprof -top"
+      ]
+    }
+  ],
+  "groups": [
+    {
+      "id": "analysis",
+      "label": "离线分析",
+      "lane": "main",
+      "fromCol": 3,
+      "toCol": 5,
+      "variant": "emphasis"
+    }
+  ]
+}

@@ -1,0 +1,192 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "pprof 优化闭环：采集 → 定位 → 优化 → 复测",
+    "output": "images/profile.html",
+    "quality_profile": "showcase",
+    "locale": "zh-CN",
+    "legend": {
+      "mode": "hidden"
+    }
+  },
+  "lanes": [
+    {
+      "id": "code",
+      "label": "实验代码 main.go"
+    },
+    {
+      "id": "pprof",
+      "label": "runtime/pprof 采集"
+    },
+    {
+      "id": "analyze",
+      "label": "go tool pprof 分析与优化"
+    }
+  ],
+  "mainPath": [
+    "instrument",
+    "start",
+    "write",
+    "top",
+    "list",
+    "optimize",
+    "retest"
+  ],
+  "nodes": [
+    {
+      "id": "instrument",
+      "lane": "code",
+      "col": 0,
+      "type": "frontend",
+      "label": "埋点 import",
+      "sublabel": "runtime/pprof + net/http/pprof",
+      "width": 150
+    },
+    {
+      "id": "http",
+      "lane": "code",
+      "col": 2,
+      "type": "external",
+      "label": "/debug/pprof/profile",
+      "sublabel": "127.0.0.1:6160 · seconds=30",
+      "tag": "线上采集",
+      "width": 132
+    },
+    {
+      "id": "retest",
+      "lane": "code",
+      "col": 5,
+      "type": "frontend",
+      "label": "复测对比",
+      "sublabel": "768208 → 94695 ns/op · 8.1x",
+      "width": 132
+    },
+    {
+      "id": "start",
+      "lane": "pprof",
+      "col": 1,
+      "type": "backend",
+      "label": "StartCPUProfile",
+      "sublabel": "默认 100Hz 栈顶采样",
+      "width": 132
+    },
+    {
+      "id": "write",
+      "lane": "pprof",
+      "col": 2,
+      "type": "database",
+      "label": "cpu.pprof 落盘",
+      "sublabel": "StopCPUProfile 写文件",
+      "width": 132
+    },
+    {
+      "id": "top",
+      "lane": "analyze",
+      "col": 3,
+      "type": "backend",
+      "label": "-top 看热点",
+      "sublabel": "hotCPU flat 87.5%（本次实测）",
+      "width": 132
+    },
+    {
+      "id": "list",
+      "lane": "analyze",
+      "col": 4,
+      "type": "backend",
+      "label": "-list 定位到行",
+      "sublabel": "main.go:42 h=h*31+…",
+      "width": 132
+    },
+    {
+      "id": "optimize",
+      "lane": "analyze",
+      "col": 5,
+      "type": "backend",
+      "label": "只改热点函数",
+      "sublabel": "hotCPU → hotCPUfast",
+      "width": 132
+    }
+  ],
+  "edges": [
+    {
+      "id": "e1",
+      "from": "instrument",
+      "to": "start",
+      "label": "开启采样",
+      "variant": "emphasis"
+    },
+    {
+      "id": "e2",
+      "from": "start",
+      "to": "write",
+      "label": "300 轮后停止",
+      "variant": "default"
+    },
+    {
+      "id": "e3",
+      "from": "start",
+      "to": "http",
+      "label": "生产环境同款",
+      "variant": "dashed",
+      "role": "branch"
+    },
+    {
+      "id": "e4",
+      "from": "write",
+      "to": "top",
+      "label": "go tool pprof -top",
+      "variant": "emphasis"
+    },
+    {
+      "id": "e5",
+      "from": "top",
+      "to": "list",
+      "label": "钻到行级",
+      "variant": "emphasis"
+    },
+    {
+      "id": "e6",
+      "from": "list",
+      "to": "optimize",
+      "label": "只改 flat 最大的",
+      "variant": "emphasis"
+    },
+    {
+      "id": "e7",
+      "from": "optimize",
+      "to": "retest",
+      "label": "再 profile 验证",
+      "variant": "emphasis"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "rose",
+      "title": "本次实测（go run main.go）",
+      "items": [
+        "hotCPU 768208 → hotCPUfast 94695 ns/op，加速 8.1x",
+        "-top：hotCPU flat 210ms / 87.5%，cum 91.67%",
+        "采样百分比随负载波动，判断标准是热点集中点"
+      ]
+    },
+    {
+      "dot": "cyan",
+      "title": "flat vs cum",
+      "items": [
+        "flat=函数自己烧的 CPU；cum=含它调用的子孙",
+        "-list 把热点钉到行：main.go:42 独占 210ms",
+        "优化对象只选 flat 最大的那一个"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "两种采集方式",
+      "items": [
+        "本地：StartCPUProfile 写 cpu.pprof（实验默认）",
+        "线上：curl :6160/debug/pprof/profile?seconds=30",
+        "heap 同理：-inuse_space 看驻留，91.65% 在 hotMemAlloc"
+      ]
+    }
+  ]
+}

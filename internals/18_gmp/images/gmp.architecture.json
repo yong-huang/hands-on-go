@@ -1,0 +1,216 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "GMP 调度模型：P 本地 runq、全局兜底、steal 与 syscall handoff",
+    "output": "images/gmp.html",
+    "quality_profile": "showcase",
+    "locale": "zh-CN",
+    "legend": {
+      "mode": "hidden"
+    }
+  },
+  "components": [
+    {
+      "id": "gspawn",
+      "type": "external",
+      "label": "新建 G",
+      "sublabel": "go 语句 · 落在发起者的 P",
+      "pos": [
+        40,
+        150
+      ],
+      "size": [
+        170,
+        76
+      ]
+    },
+    {
+      "id": "p0",
+      "type": "backend",
+      "label": "P 处理器",
+      "sublabel": "本地 runq · 无锁 FIFO 环形 + runnext",
+      "tag": "GOMAXPROCS 个",
+      "pos": [
+        300,
+        150
+      ],
+      "size": [
+        170,
+        76
+      ]
+    },
+    {
+      "id": "m0",
+      "type": "backend",
+      "label": "M 系统线程",
+      "sublabel": "必须持 P 才能运行 G",
+      "pos": [
+        560,
+        150
+      ],
+      "size": [
+        170,
+        76
+      ]
+    },
+    {
+      "id": "grunning",
+      "type": "frontend",
+      "label": "G 运行中",
+      "sublabel": "切换 ≈ 出队 + 入队",
+      "pos": [
+        820,
+        150
+      ],
+      "size": [
+        170,
+        76
+      ]
+    },
+    {
+      "id": "p1",
+      "type": "backend",
+      "label": "邻居 P",
+      "sublabel": "它的本地 runq 也会空",
+      "pos": [
+        40,
+        400
+      ],
+      "size": [
+        170,
+        76
+      ]
+    },
+    {
+      "id": "globalq",
+      "type": "database",
+      "label": "全局 runq",
+      "sublabel": "带锁 · FIFO 公平兜底",
+      "pos": [
+        300,
+        400
+      ],
+      "size": [
+        170,
+        76
+      ]
+    },
+    {
+      "id": "msys",
+      "type": "external",
+      "label": "M 陷入 syscall",
+      "sublabel": "G 阻塞 · 与 P 分离",
+      "pos": [
+        560,
+        400
+      ],
+      "size": [
+        170,
+        76
+      ]
+    },
+    {
+      "id": "midle",
+      "type": "external",
+      "label": "空闲 M 池",
+      "sublabel": "睡眠 · 被唤醒接管 P",
+      "pos": [
+        820,
+        400
+      ],
+      "size": [
+        170,
+        76
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "id": "spawn-queue",
+      "from": "gspawn",
+      "to": "p0",
+      "label": "新 G 入队",
+      "variant": "emphasis"
+    },
+    {
+      "id": "bind",
+      "from": "p0",
+      "to": "m0",
+      "label": "M 绑定 P",
+      "variant": "emphasis"
+    },
+    {
+      "id": "exec",
+      "from": "m0",
+      "to": "grunning",
+      "label": "取 G 执行",
+      "variant": "emphasis"
+    },
+    {
+      "id": "spill",
+      "from": "p0",
+      "to": "globalq",
+      "label": "队满溢出一半",
+      "labelDy": 24,
+      "labelDx": 30
+    },
+    {
+      "id": "fallback",
+      "from": "globalq",
+      "to": "p0",
+      "label": "本地空则取全局",
+      "labelDx": -60
+    },
+    {
+      "id": "steal",
+      "from": "p1",
+      "to": "p0",
+      "label": "空闲就偷一半"
+    },
+    {
+      "id": "block",
+      "from": "grunning",
+      "to": "msys",
+      "label": "G 阻塞 syscall",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "handoff",
+      "from": "msys",
+      "to": "midle",
+      "label": "P 移交 handoff",
+      "variant": "dashed"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "心智模型",
+      "items": [
+        "G 是任务、M 是 OS 线程、P 是工位：M 必须占到一个 P 才能执行 G",
+        "本地 runq 是主线：入队出队不走锁，G 切换 ≈ 出队 + 入队",
+        "全局 runq 与 steal 是两级兜底：先讲公平，再讲负载均衡"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "syscall 时的 handoff",
+      "items": [
+        "G 阻塞在 syscall：M 陪着 G 陷入内核等待",
+        "runtime 把 P 从该 M 身上分离，移交给空闲 M 继续跑别的 G",
+        "syscall 返回后 M 尝试取回 P；取不到就把 G 放进全局 runq，自己去睡眠"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "本实验如何验证",
+      "items": [
+        "main.go 用迷你调度器建模 本地 → 全局 → steal 三级规则（P=4，12 个 G）",
+        "实测 42 次取任务：local 30 / global 2 / steal 10，共 11 步",
+        "images/gmp_stats.png 是实测数据图；本页补齐真实 GMP 的 syscall 分支"
+      ]
+    }
+  ]
+}

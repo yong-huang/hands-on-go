@@ -1,0 +1,163 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "一次小对象分配：从 size class 到 OS 的逐层下探",
+    "output": "images/sizeclass.html",
+    "quality_profile": "showcase",
+    "locale": "zh-CN",
+    "legend": {
+      "mode": "hidden"
+    }
+  },
+  "lanes": [
+    {
+      "id": "user",
+      "label": "用户代码 → mallocgc"
+    },
+    {
+      "id": "rt",
+      "label": "runtime 分配器"
+    },
+    {
+      "id": "os",
+      "label": "操作系统"
+    }
+  ],
+  "mainPath": [
+    "call",
+    "sc",
+    "mc",
+    "mcent",
+    "mh",
+    "osn"
+  ],
+  "nodes": [
+    {
+      "id": "call",
+      "lane": "user",
+      "col": 0,
+      "type": "frontend",
+      "label": "new(Payload)",
+      "sublabel": "三组对照的每条分配语句",
+      "width": 132
+    },
+    {
+      "id": "sc",
+      "lane": "user",
+      "col": 1,
+      "type": "backend",
+      "label": "算 size class",
+      "sublabel": "mallocgc：32B → class 32",
+      "width": 132
+    },
+    {
+      "id": "mc",
+      "lane": "rt",
+      "col": 2,
+      "type": "backend",
+      "label": "mcache 取 slot",
+      "sublabel": "每 P 私有 · 无锁",
+      "tag": "多数到此结束",
+      "width": 132
+    },
+    {
+      "id": "mcent",
+      "lane": "rt",
+      "col": 3,
+      "type": "database",
+      "label": "mcentral 补 span",
+      "sublabel": "按 class 唯一 · 加锁",
+      "width": 132
+    },
+    {
+      "id": "mh",
+      "lane": "rt",
+      "col": 4,
+      "type": "database",
+      "label": "mheap 分页堆",
+      "sublabel": "8KB 页 · 全局加锁",
+      "width": 132
+    },
+    {
+      "id": "osn",
+      "lane": "os",
+      "col": 5,
+      "type": "cloud",
+      "label": "向 OS 要内存",
+      "sublabel": "缺页 → darwin/arm64 页 16KB",
+      "width": 132
+    }
+  ],
+  "edges": [
+    {
+      "id": "e1",
+      "from": "call",
+      "to": "sc",
+      "label": "触发堆分配",
+      "variant": "emphasis"
+    },
+    {
+      "id": "e2",
+      "from": "sc",
+      "to": "mc",
+      "label": "查本 class 缓存"
+    },
+    {
+      "id": "e3",
+      "from": "mc",
+      "to": "mcent",
+      "label": "span 用尽（未命中）"
+    },
+    {
+      "id": "e4",
+      "from": "mcent",
+      "to": "mh",
+      "label": "无可用 span（未命中）"
+    },
+    {
+      "id": "e5",
+      "from": "mh",
+      "to": "osn",
+      "label": "页不足（缺页）",
+      "variant": "emphasis"
+    },
+    {
+      "id": "e6",
+      "from": "mcent",
+      "to": "mc",
+      "label": "span 回填",
+      "variant": "dashed",
+      "role": "return"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "怎么读这张图",
+      "items": [
+        "主路径是缺货时逐层下探，拿到货后逐层回填",
+        "绝大多数分配止步于 mcache：实测 new 1 allocs/op、Pool 0 allocs/op",
+        "越往下锁越重、代价越大——省分配就是省整条下探路"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "实测锚点（go1.26.5 · darwin/arm64）",
+      "items": [
+        "new(Payload)：32B 正好命中 class 32，无 padding（32 B/op）",
+        "make([]int,0,256)：数据 2048B → class 2048，+24B 头 = 2072 B/op",
+        "ns/op 同机波动可超 2 倍，allocs/op 每轮完全一致"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "旁路与例外",
+      "items": [
+        "> 32KB 大对象绕过 mcache/mcentral，直达 mheap",
+        "< 16B 无指针对象走 tiny 合并，共享 16B 块",
+        "没逃逸的对象在栈上分配，根本不进这条链"
+      ]
+    }
+  ]
+}

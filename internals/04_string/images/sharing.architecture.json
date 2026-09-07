@@ -1,0 +1,129 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "字符串切片 s[1:5]：只移指针，不拷贝字节",
+    "output": "images/sharing.html",
+    "quality_profile": "showcase",
+    "locale": "zh-CN",
+    "viewBox": [
+      860,
+      500
+    ]
+  },
+  "components": [
+    {
+      "id": "s_head",
+      "type": "backend",
+      "label": "s = \"gopher\"",
+      "sublabel": "str=0x…9e3 · len=6",
+      "tag": "data +0B",
+      "pos": [
+        140,
+        100
+      ],
+      "size": [
+        190,
+        68
+      ]
+    },
+    {
+      "id": "sub_head",
+      "type": "backend",
+      "label": "sub = s[1:5]",
+      "sublabel": "str=0x…9e4 · len=4",
+      "tag": "data +1B",
+      "pos": [
+        470,
+        100
+      ],
+      "size": [
+        190,
+        68
+      ]
+    },
+    {
+      "id": "bytes",
+      "type": "database",
+      "label": "只读字节数组（仅一份）",
+      "sublabel": "g o p h e r · [1:5] = \"ophe\"",
+      "tag": "无任何拷贝",
+      "pos": [
+        330,
+        318
+      ],
+      "size": [
+        240,
+        76
+      ]
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "stringHeader{str, len}",
+      "wraps": [
+        "s_head",
+        "sub_head"
+      ],
+      "pad": 18
+    },
+    {
+      "kind": "region",
+      "label": "只读数据区 rodata",
+      "wraps": [
+        "bytes"
+      ],
+      "pad": 16
+    }
+  ],
+  "connections": [
+    {
+      "from": "s_head",
+      "to": "bytes",
+      "label": "str 指向字节 0",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "from": "sub_head",
+      "to": "bytes",
+      "label": "偏移 +1B（实测）",
+      "variant": "emphasis",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelAt": [
+        540,
+        228
+      ]
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "怎么看这张图",
+      "items": [
+        "s[a:b] 生成一个新头：str 加偏移、len 重算，数据零拷贝",
+        "实测偏移 = sub.data - s.data = 1 字节，地址每次运行不同、偏移不变",
+        "string 没有 cap，切片也就没有 slice 那种「容量内 append 写穿」的隐患"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "共享的代价",
+      "items": [
+        "两个 string 看的是同一块只读字节：谁都无法原地修改",
+        "按字节边界切片可能把多字节中文拦腰切断，得到乱码",
+        "遍历字符请用 for range（按 rune），不要按字节下标猜边界"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "如何验证",
+      "items": [
+        "go run main.go 看第 2 节：打印偏移 1 字节与两份 data 地址",
+        "len(s)=6 而 len(sub)=4：len 只是头里的一个整数"
+      ]
+    }
+  ]
+}

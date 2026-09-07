@@ -1,0 +1,139 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "append 超容量：重新分配与悄然分离",
+    "output": "images/realloc.html",
+    "quality_profile": "showcase",
+    "locale": "zh-CN",
+    "legend": {
+      "mode": "hidden"
+    }
+  },
+  "lanes": [
+    {
+      "id": "demo",
+      "label": "实验演示（main.go 第 4 节）"
+    },
+    {
+      "id": "rt",
+      "label": "runtime 内部"
+    },
+    {
+      "id": "old",
+      "label": "旧数组的命运"
+    }
+  ],
+  "mainPath": [
+    "call",
+    "grow",
+    "alloc",
+    "repoint"
+  ],
+  "nodes": [
+    {
+      "id": "call",
+      "lane": "demo",
+      "col": 0,
+      "type": "frontend",
+      "label": "连续 append ×7",
+      "sublabel": "len 3→10 超出 cap 9",
+      "width": 132
+    },
+    {
+      "id": "grow",
+      "lane": "rt",
+      "col": 1,
+      "type": "backend",
+      "label": "growslice 定容量",
+      "sublabel": "cap 9→18（翻倍规则）",
+      "width": 132
+    },
+    {
+      "id": "alloc",
+      "lane": "rt",
+      "col": 2,
+      "type": "database",
+      "label": "mallocgc + copy",
+      "sublabel": "分配新数组，搬 [999 21 31]",
+      "width": 132
+    },
+    {
+      "id": "repoint",
+      "lane": "demo",
+      "col": 3,
+      "type": "backend",
+      "label": "sliceA 换头",
+      "sublabel": "data 换新地址 · cap 18",
+      "width": 132
+    },
+    {
+      "id": "oldarr",
+      "lane": "old",
+      "col": 3,
+      "type": "database",
+      "label": "旧数组仍在",
+      "sublabel": "original / sliceB 指向不变",
+      "tag": "已与 sliceA 分离",
+      "width": 132
+    }
+  ],
+  "edges": [
+    {
+      "id": "e1",
+      "from": "call",
+      "to": "grow",
+      "label": "触发扩容",
+      "variant": "emphasis"
+    },
+    {
+      "id": "e2",
+      "from": "grow",
+      "to": "alloc",
+      "variant": "default"
+    },
+    {
+      "id": "e3",
+      "from": "alloc",
+      "to": "repoint",
+      "label": "新地址写入 header",
+      "variant": "emphasis"
+    },
+    {
+      "id": "e4",
+      "from": "repoint",
+      "to": "oldarr",
+      "label": "不再共享",
+      "variant": "dashed",
+      "role": "branch"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "rose",
+      "title": "经典陷阱",
+      "items": [
+        "append 后 sliceA 搬进新数组，与 original/sliceB 分离",
+        "实测 data 地址 0x…198 → 0x…8000（每次运行不同）",
+        "想继续共享就用完整切片表达式或显式 copy"
+      ]
+    },
+    {
+      "dot": "cyan",
+      "title": "扩容规则",
+      "items": [
+        "所需 > 2×cap：按所需分配",
+        "cap < 256 翻倍（本例 9→18）；否则按比例递增",
+        "最后对齐 size class：估算 832 实测 848"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "如何验证",
+      "items": [
+        "go run main.go 看第 4 节：新旧 data 地址不等",
+        "original / sliceB 地址前后打印不变"
+      ]
+    }
+  ]
+}

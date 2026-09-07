@@ -1,0 +1,178 @@
+{
+  "schema_version": 1,
+  "diagram_type": "sequence",
+  "meta": {
+    "title": "阻塞 syscall 时间线：M 蹲守内核，P 被移交，返回后取回或休眠",
+    "output": "images/syscall.html",
+    "quality_profile": "showcase",
+    "locale": "zh-CN",
+    "viewBox": [
+      1060,
+      600
+    ],
+    "column_fit": "spread"
+  },
+  "participants": [
+    {
+      "id": "g1",
+      "type": "frontend",
+      "label": "G1（worker goroutine）",
+      "sublabel": "卡在文件锁上"
+    },
+    {
+      "id": "m1",
+      "type": "backend",
+      "label": "M1（OS 线程）",
+      "sublabel": "原带着 P 跑 G1"
+    },
+    {
+      "id": "kernel",
+      "type": "external",
+      "label": "OS 内核",
+      "sublabel": "flock 文件锁"
+    },
+    {
+      "id": "sched",
+      "type": "messagebus",
+      "label": "运行时调度器",
+      "sublabel": "sysmon 监控"
+    },
+    {
+      "id": "m2",
+      "type": "backend",
+      "label": "M2（空闲/新建线程）",
+      "sublabel": "接过 P 继续干活"
+    }
+  ],
+  "messages": [
+    {
+      "id": "enter-syscall",
+      "from": "g1",
+      "to": "m1",
+      "y": 168,
+      "label": "调用 syscall.Flock(fd, LOCK_EX)",
+      "variant": "default",
+      "note": "G 进入 _Gsyscall 状态，此时 P 还握在 M1 手里"
+    },
+    {
+      "id": "trap-kernel",
+      "from": "m1",
+      "to": "kernel",
+      "y": 214,
+      "label": "flock 陷入内核，等待文件锁",
+      "variant": "emphasis",
+      "note": "M1 蹲在 syscall 里：锁不放，它回不来，也跑不了别的 G"
+    },
+    {
+      "id": "handoff",
+      "from": "sched",
+      "to": "m1",
+      "y": 272,
+      "label": "sysmon 检测到 syscall 超时，收走 P（handoff）",
+      "variant": "emphasis",
+      "note": "M1 与 P 脱钩，独自留在内核里"
+    },
+    {
+      "id": "give-p",
+      "from": "sched",
+      "to": "m2",
+      "y": 318,
+      "label": "P 移交空闲 M；池里没货就新建 OS 线程",
+      "variant": "emphasis",
+      "note": "实测：GOMAXPROCS=2、8 个 G 卡锁，线程 5 → 11（+6）"
+    },
+    {
+      "id": "keep-running",
+      "from": "m2",
+      "to": "sched",
+      "y": 364,
+      "label": "用 P 继续执行 runq 里的其他 G",
+      "variant": "return"
+    },
+    {
+      "id": "flock-return",
+      "from": "kernel",
+      "to": "m1",
+      "y": 424,
+      "label": "锁释放，flock 返回",
+      "variant": "return"
+    },
+    {
+      "id": "try-reacquire",
+      "from": "m1",
+      "to": "sched",
+      "y": 468,
+      "label": "尝试 pidleget 取回一个空闲 P"
+    },
+    {
+      "id": "reacquire-or-park",
+      "from": "sched",
+      "to": "m1",
+      "y": 514,
+      "label": "取到 P → 接着跑 G；取不到 → M 休眠入池",
+      "variant": "return",
+      "note": "释放锁后线程数仍是 11：M 回池休眠，不会被销毁"
+    }
+  ],
+  "activations": [
+    {
+      "participant": "g1",
+      "from": 163,
+      "to": 430,
+      "type": "frontend"
+    },
+    {
+      "participant": "m1",
+      "from": 163,
+      "to": 520,
+      "type": "backend"
+    },
+    {
+      "participant": "kernel",
+      "from": 210,
+      "to": 430,
+      "type": "external"
+    },
+    {
+      "participant": "sched",
+      "from": 268,
+      "to": 520,
+      "type": "messagebus"
+    },
+    {
+      "participant": "m2",
+      "from": 314,
+      "to": 370,
+      "type": "backend"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "emerald",
+      "title": "实测数据（go run main.go）",
+      "items": [
+        "GOMAXPROCS=2，8 个 worker 抢 flock：线程 5 → 11（+6）",
+        "G 数 1 → 9，其中 8 个全部阻塞在 flock 上",
+        "释放锁后线程仍是 11：M 回池休眠，不销毁"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "handoff：M 与 P 分离",
+      "items": [
+        "M 陷入内核后跑不了任何 G，P 握在它手里是浪费",
+        "sysmon 检测到 syscall 超时，把 P 收走",
+        "空闲 M 池有货就复用，没货就新建 OS 线程"
+      ]
+    },
+    {
+      "dot": "violet",
+      "title": "netpoller 对照",
+      "items": [
+        "网络 I/O 用非阻塞 fd + kqueue/epoll，M 不蹲守",
+        "G 睡在 poller 里，M 转身就能跑别的 G",
+        "线程暴涨只发生在真实阻塞 syscall 上"
+      ]
+    }
+  ]
+}

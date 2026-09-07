@@ -1,0 +1,138 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "sync.Pool 结构：per-P 分片 + victim 缓存 + New 兜底",
+    "output": "images/pool.html",
+    "quality_profile": "showcase",
+    "locale": "zh-CN",
+    "viewBox": [1320, 540]
+  },
+  "components": [
+    {
+      "id": "caller",
+      "type": "frontend",
+      "label": "Get / Put 调用",
+      "sublabel": "热路径每次进出池",
+      "tag": "同一轮内零成本",
+      "pos": [80, 240],
+      "size": [190, 72]
+    },
+    {
+      "id": "p0",
+      "type": "backend",
+      "label": "P0 的 poolLocal",
+      "sublabel": "private 槽 + shared 链",
+      "tag": "本 P 无锁",
+      "pos": [420, 100],
+      "size": [200, 78]
+    },
+    {
+      "id": "p1",
+      "type": "backend",
+      "label": "P1 的 poolLocal",
+      "sublabel": "private 槽 + shared 链",
+      "tag": "可被偷",
+      "pos": [735, 100],
+      "size": [200, 78]
+    },
+    {
+      "id": "pn",
+      "type": "backend",
+      "label": "Pn-1 的 poolLocal",
+      "sublabel": "共 GOMAXPROCS 份",
+      "tag": "按 P 分桶",
+      "pos": [1040, 100],
+      "size": [200, 78]
+    },
+    {
+      "id": "victim",
+      "type": "database",
+      "label": "victim 缓存",
+      "sublabel": "上一轮 local 的整体备份",
+      "tag": "GC 拍1 平移进来",
+      "pos": [730, 380],
+      "size": [210, 74]
+    },
+    {
+      "id": "newf",
+      "type": "external",
+      "label": "New() 兜底",
+      "sublabel": "实测 exp1 仅调用 2 次",
+      "tag": "全空才触发",
+      "pos": [1040, 380],
+      "size": [190, 74]
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "sync.Pool = local[]：每个 P 一份 poolLocal（private/shared）",
+      "wraps": ["p0", "p1", "pn"],
+      "pad": 20
+    },
+    {
+      "kind": "region",
+      "label": "GC 后的慢速层",
+      "wraps": ["victim", "newf"],
+      "pad": 16
+    }
+  ],
+  "connections": [
+    {
+      "from": "caller",
+      "to": "p0",
+      "label": "① 先摸本 P private",
+      "variant": "emphasis",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "from": "p0",
+      "to": "p1",
+      "label": "② 空 → 偷他人 shared"
+    },
+    {
+      "from": "p1",
+      "to": "victim",
+      "label": "③ 分片全空 → 翻 victim",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelAt": [835, 200]
+    },
+    {
+      "from": "victim",
+      "to": "newf",
+      "label": "④ 也空 → New()"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "心智模型",
+      "items": [
+        "Pool = 一撮 per-P 无锁分片（local[]）+ victim 缓存 + New 兜底",
+        "Get 顺序：本 P private → 偷他人 shared → victim → New()",
+        "Put 顺序：private 空放 private，否则推 shared 链头"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "实测（Go 1.26.5）",
+      "items": [
+        "exp1：Get→Put→Get 拿到同一指针，连续 3 轮全同一对象",
+        "exp3：300 万轮复用 GC 增量 0 次；裸 new 逃逸后 GC 19 次、分配 72.1 MB",
+        "exp1 里 New 被调 2 次：上一次 Get 取走没还回，下一次 Get 才触发"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "坑：多 P 下 victim 是概率性的",
+      "items": [
+        "victim 按 P 分块，GC 后 goroutine 可能漂到别的 P，捞不回自己存的那个",
+        "exp2 锁定 GOMAXPROCS(1) 才能确定复现「第一拍捞回 seed」",
+        "别把 Pool 当持久缓存：对象最多跨一个 GC 周期"
+      ]
+    }
+  ]
+}

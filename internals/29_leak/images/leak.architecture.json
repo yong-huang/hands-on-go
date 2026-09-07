@@ -1,0 +1,237 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "goroutine 泄漏：阻塞在无人接的 channel 上，GC 收不回",
+    "quality_profile": "showcase",
+    "locale": "zh-CN",
+    "viewBox": [
+      1300,
+      592
+    ]
+  },
+  "components": [
+    {
+      "id": "main",
+      "type": "backend",
+      "label": "main goroutine",
+      "sublabel": "main.main",
+      "pos": [
+        50,
+        345
+      ],
+      "size": [
+        150,
+        64
+      ]
+    },
+    {
+      "id": "leaked",
+      "type": "external",
+      "label": "泄漏协程 ×20",
+      "sublabel": "go func(){ <-ch }",
+      "pos": [
+        290,
+        345
+      ],
+      "size": [
+        160,
+        64
+      ],
+      "tag": "main.main.func1:65"
+    },
+    {
+      "id": "ch",
+      "type": "messagebus",
+      "label": "ch chan struct{}",
+      "sublabel": "无缓冲 · 无人发送 · 无人 close",
+      "pos": [
+        540,
+        345
+      ],
+      "size": [
+        180,
+        64
+      ]
+    },
+    {
+      "id": "refs",
+      "type": "backend",
+      "label": "goroutine + 栈内存",
+      "sublabel": "阻塞点引用链可达",
+      "pos": [
+        830,
+        345
+      ],
+      "size": [
+        170,
+        64
+      ],
+      "tag": "runtime.gopark · chanrecv1"
+    },
+    {
+      "id": "gc",
+      "type": "database",
+      "label": "Go GC",
+      "sublabel": "三色标记",
+      "pos": [
+        1140,
+        345
+      ],
+      "size": [
+        130,
+        64
+      ],
+      "tag": "标记存活"
+    },
+    {
+      "id": "prof",
+      "type": "external",
+      "label": "NumGoroutine=21",
+      "sublabel": "pprof: 20 @ func1",
+      "pos": [
+        1020,
+        492
+      ],
+      "size": [
+        180,
+        64
+      ]
+    },
+    {
+      "id": "fix-close",
+      "type": "backend",
+      "label": "close(ch)",
+      "sublabel": "接收方读到零值后退出",
+      "pos": [
+        550,
+        492
+      ],
+      "size": [
+        160,
+        64
+      ]
+    },
+    {
+      "id": "fix-buffered",
+      "type": "backend",
+      "label": "make(ch, N)",
+      "sublabel": "带缓冲：发送不再阻塞",
+      "pos": [
+        730,
+        492
+      ],
+      "size": [
+        170,
+        64
+      ]
+    },
+    {
+      "id": "fix-ctx",
+      "type": "backend",
+      "label": "ctx 取消",
+      "sublabel": "select { <-ctx.Done() }",
+      "pos": [
+        285,
+        492
+      ],
+      "size": [
+        170,
+        64
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "id": "main-spawn",
+      "from": "main",
+      "to": "leaked",
+      "label": "go 启动 ×20",
+      "variant": "emphasis"
+    },
+    {
+      "id": "leaked-block",
+      "from": "leaked",
+      "to": "ch",
+      "label": "<-ch 永久阻塞",
+      "variant": "emphasis"
+    },
+    {
+      "id": "ch-refs",
+      "from": "ch",
+      "to": "refs",
+      "label": "阻塞点引用",
+      "variant": "dashed"
+    },
+    {
+      "id": "refs-gc",
+      "from": "refs",
+      "to": "gc",
+      "label": "引用可达·不回收"
+    },
+    {
+      "id": "refs-prof",
+      "from": "refs",
+      "to": "prof",
+      "label": "goroutine profile",
+      "variant": "dashed",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelDy": 24
+    },
+    {
+      "id": "close-fix",
+      "from": "fix-close",
+      "to": "ch",
+      "label": "解除阻塞",
+      "fromSide": "top",
+      "toSide": "bottom",
+      "labelDy": 88
+    },
+    {
+      "id": "buffered-fix",
+      "from": "fix-buffered",
+      "to": "ch",
+      "label": "避免阻塞",
+      "fromSide": "top",
+      "toSide": "right"
+    },
+    {
+      "id": "ctx-fix",
+      "from": "fix-ctx",
+      "to": "leaked",
+      "label": "取消信号解除",
+      "fromSide": "top",
+      "toSide": "bottom"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "rose",
+      "title": "泄漏机制",
+      "items": [
+        "协程永久阻塞在 <-ch：无人发送也无人 close",
+        "阻塞的 goroutine 及其栈沿引用链可达",
+        "GC 只回收不可达对象——协程收不回，NumGoroutine 从 1 涨到 21"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "三种解除方式",
+      "items": [
+        "close(ch)：接收方读到零值，退出循环",
+        "带缓冲 channel：发送不阻塞，不再卡死",
+        "ctx 取消：select 监听 Done()，超时/退出可控"
+      ]
+    },
+    {
+      "dot": "cyan",
+      "title": "取证手段",
+      "items": [
+        "runtime.NumGoroutine：协程数基线对比",
+        "pprof.Lookup(\"goroutine\").WriteTo(f, 1)：文本栈",
+        "实测：20 个协程全部卡在 runtime.gopark → chanrecv1"
+      ]
+    }
+  ]
+}

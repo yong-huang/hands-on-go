@@ -1,0 +1,107 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "Map 查找路径：tophash 预筛 + 溢出桶链",
+    "output": "images/chain.html",
+    "quality_profile": "showcase",
+    "locale": "zh-CN"
+  },
+  "components": [
+    {
+      "id": "lookup",
+      "type": "frontend",
+      "label": "查找 collision_0202",
+      "sublabel": "tophash=0x0f · 低 4 位 → 桶 #4",
+      "pos": [110, 170],
+      "size": [230, 84]
+    },
+    {
+      "id": "mainb",
+      "type": "database",
+      "label": "主桶 #4 · 8 槽",
+      "sublabel": "tophash：33 36 ac b0 2b 99 23 20",
+      "tag": "8/8 槽满",
+      "pos": [480, 160],
+      "size": [280, 100]
+    },
+    {
+      "id": "overb",
+      "type": "database",
+      "label": "溢出桶（next）",
+      "sublabel": "tophash：1d a2 9f 0f · 4/8",
+      "tag": "槽 3 命中 0x0f",
+      "pos": [900, 160],
+      "size": [230, 100]
+    },
+    {
+      "id": "hmap",
+      "type": "backend",
+      "label": "hmap 头",
+      "sublabel": "count=12 · B=4 · 16 桶 · 下标=hash 低 B 位",
+      "tag": "阈值 6.5",
+      "pos": [480, 400],
+      "size": [280, 80]
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "桶 #4 的溢出链：同一 hash 低 4 位",
+      "wraps": ["mainb", "overb"],
+      "pad": 18
+    },
+    {
+      "kind": "region",
+      "label": "hmap 顶层元数据",
+      "wraps": ["hmap"],
+      "pad": 14
+    }
+  ],
+  "connections": [
+    {
+      "from": "lookup",
+      "to": "mainb",
+      "label": "tophash 8 格全不中"
+    },
+    {
+      "from": "mainb",
+      "to": "overb",
+      "label": "槽满 → 沿 next 下探",
+      "variant": "emphasis"
+    },
+    {
+      "from": "hmap",
+      "to": "mainb"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "怎么看这张图",
+      "items": [
+        "桶下标 = hash 低 B 位（B=4 → 16 桶），tophash = hash 高 8 位",
+        "主桶 8 格 tophash 全不等于 0x0f，才沿 next 进溢出桶",
+        "演示用固定种子的确定性哈希，每次运行输出完全一致"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "tophash 预筛",
+      "items": [
+        "先比 1 字节 tophash：不等直接跳过，省掉昂贵的字符串比较",
+        "12 个 key 挤进同一桶：主桶 8 格满后新建溢出桶挂到链尾",
+        "最坏退化为沿链逐桶扫描——Swiss Table 用 SIMD 改进的正是这一步"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "如何验证",
+      "items": [
+        "go run main.go 看第 4 节：插入第 9 个时打印「桶 4 已满 → 新建溢出桶」",
+        "go run main.go -json 看 m3.chain：主桶 8 项 + 溢出桶 4 项的 tophash 数组",
+        "第 3 节查找打印「比较了 N 个槽位」：N 就是 tophash 预筛的实际开销"
+      ]
+    }
+  ]
+}

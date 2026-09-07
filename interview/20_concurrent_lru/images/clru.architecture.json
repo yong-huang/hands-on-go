@@ -1,0 +1,151 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "分片并发 LRU：哈希路由到独立分片，锁粒度降到 shard",
+    "output": "images/clru.html",
+    "quality_profile": "showcase",
+    "locale": "zh-CN"
+  },
+  "components": [
+    {
+      "id": "clients",
+      "type": "frontend",
+      "label": "100 个 goroutine",
+      "sublabel": "并发 Get / Put",
+      "pos": [
+        120,
+        200
+      ],
+      "size": [
+        170,
+        68
+      ]
+    },
+    {
+      "id": "router",
+      "type": "backend",
+      "label": "getShard(key)",
+      "sublabel": "FNV-32a(key) % shardCount",
+      "tag": "相同 key 恒达同一 shard",
+      "pos": [
+        420,
+        200
+      ],
+      "size": [
+        190,
+        68
+      ]
+    },
+    {
+      "id": "shard0",
+      "type": "database",
+      "label": "shards[0]",
+      "sublabel": "RWMutex · map[string]*entry · lruList",
+      "pos": [
+        780,
+        60
+      ],
+      "size": [
+        260,
+        68
+      ]
+    },
+    {
+      "id": "shard1",
+      "type": "database",
+      "label": "shards[1]",
+      "sublabel": "RWMutex · map[string]*entry · lruList",
+      "tag": "Get: RLock 查找 → Lock 提升 MRU",
+      "pos": [
+        780,
+        200
+      ],
+      "size": [
+        260,
+        68
+      ]
+    },
+    {
+      "id": "shard31",
+      "type": "database",
+      "label": "shards[31]",
+      "sublabel": "RWMutex · map[string]*entry · lruList",
+      "tag": "Put: Lock 插入，满则 popBack 淘汰",
+      "pos": [
+        780,
+        340
+      ],
+      "size": [
+        260,
+        68
+      ]
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "shards []shard（每片独立锁 + 独立 LRU，容量 = shardCount × perShardCap）",
+      "wraps": [
+        "shard0",
+        "shard1",
+        "shard31"
+      ],
+      "pad": 20
+    }
+  ],
+  "connections": [
+    {
+      "from": "clients",
+      "to": "router",
+      "label": "key 路由"
+    },
+    {
+      "from": "router",
+      "to": "shard0",
+      "label": "hash%32=0"
+    },
+    {
+      "from": "router",
+      "to": "shard1",
+      "label": "hash%32=1",
+      "variant": "emphasis",
+      "labelDx": -60,
+      "labelDy": -16
+    },
+    {
+      "from": "router",
+      "to": "shard31",
+      "label": "hash%32=31"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "锁粒度",
+      "items": [
+        "锁是每 shard 一把 RWMutex，不是全局一把",
+        "不同 shard 的请求互不阻塞，并行度 = shard 数",
+        "锁竞争被 32 个分片均摊，实测 ~1.2M ops/sec"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "Get 两段加锁",
+      "items": [
+        "先 RLock 查 map，miss 直接返回，只花读锁",
+        "命中后 RUnlock 再 Lock，moveToFront 需要写锁",
+        "Go 的 RWMutex 不支持原地升级，二次检查防篡改"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "Put 与淘汰",
+      "items": [
+        "整段持写锁：更新 / pushFront / popBack 原子完成",
+        "满容量先 popBack 淘汰 LRU 尾，再插入头部",
+        "淘汰只发生在分片内部，不影响其他 shard"
+      ]
+    }
+  ]
+}

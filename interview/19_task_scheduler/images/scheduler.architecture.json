@@ -1,0 +1,167 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "Task Scheduler — 提交 → 小顶堆 → 调度循环 → 到期执行",
+    "quality_profile": "showcase",
+    "locale": "zh-CN",
+    "viewBox": [
+      1240,
+      580
+    ]
+  },
+  "components": [
+    {
+      "id": "api",
+      "type": "backend",
+      "label": "Schedule / ScheduleAt",
+      "sublabel": "加锁 heap.Push，返回 id",
+      "pos": [
+        50,
+        220
+      ],
+      "size": [
+        190,
+        76
+      ]
+    },
+    {
+      "id": "cancel",
+      "type": "backend",
+      "label": "Cancel(id)",
+      "sublabel": "懒删除：标记 cancelled",
+      "pos": [
+        50,
+        440
+      ],
+      "size": [
+        190,
+        76
+      ]
+    },
+    {
+      "id": "heap",
+      "type": "database",
+      "label": "taskHeap 小顶堆",
+      "sublabel": "executeAt 早者优先，同刻看 priority",
+      "pos": [
+        370,
+        220
+      ],
+      "size": [
+        230,
+        76
+      ]
+    },
+    {
+      "id": "loop",
+      "type": "backend",
+      "label": "调度循环 goroutine",
+      "sublabel": "peekNext() 查看堆顶",
+      "pos": [
+        710,
+        220
+      ],
+      "size": [
+        190,
+        76
+      ]
+    },
+    {
+      "id": "wait",
+      "type": "backend",
+      "label": "select 等待",
+      "sublabel": "time.After(到期) 或 done",
+      "pos": [
+        1010,
+        220
+      ],
+      "size": [
+        170,
+        76
+      ]
+    },
+    {
+      "id": "exec",
+      "type": "backend",
+      "label": "Pop + 执行 t.fn()",
+      "sublabel": "批量执行所有已到期任务",
+      "pos": [
+        1010,
+        440
+      ],
+      "size": [
+        170,
+        76
+      ]
+    },
+    {
+      "id": "stop",
+      "type": "security",
+      "label": "Stop()",
+      "sublabel": "close(done) + wg.Wait()",
+      "pos": [
+        710,
+        440
+      ],
+      "size": [
+        170,
+        76
+      ]
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "Scheduler（mu 互斥锁保护堆）",
+      "wraps": [
+        "heap",
+        "loop",
+        "wait",
+        "exec",
+        "stop"
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "id": "submit",
+      "from": "api",
+      "to": "heap",
+      "label": "executeAt + priority"
+    },
+    {
+      "id": "mark",
+      "from": "cancel",
+      "to": "heap",
+      "label": "堆顶弹出时跳过",
+      "variant": "dashed"
+    },
+    {
+      "id": "peek",
+      "from": "heap",
+      "to": "loop",
+      "label": "堆顶 = 最早到期任务"
+    },
+    {
+      "id": "sleep",
+      "from": "loop",
+      "to": "wait",
+      "label": "睡到 executeAt"
+    },
+    {
+      "id": "fire",
+      "from": "wait",
+      "to": "exec",
+      "label": "到期触发",
+      "labelDy": 80
+    },
+    {
+      "id": "wakeup",
+      "from": "stop",
+      "to": "wait",
+      "label": "close(done) 立即唤醒退出",
+      "variant": "dashed"
+    }
+  ]
+}

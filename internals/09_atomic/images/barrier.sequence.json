@@ -1,0 +1,114 @@
+{
+  "schema_version": 1,
+  "diagram_type": "sequence",
+  "meta": {
+    "title": "release/acquire 内存屏障：data 与 ready 的 happens-before",
+    "output": "images/barrier.html",
+    "quality_profile": "showcase",
+    "locale": "zh-CN",
+    "viewBox": [
+      980,
+      550
+    ],
+    "column_fit": "spread"
+  },
+  "participants": [
+    {
+      "id": "producer",
+      "type": "frontend",
+      "label": "生产者",
+      "sublabel": "先写 data"
+    },
+    {
+      "id": "mem",
+      "type": "database",
+      "label": "共享变量",
+      "sublabel": "data 与 ready"
+    },
+    {
+      "id": "consumer",
+      "type": "backend",
+      "label": "消费者",
+      "sublabel": "后读 data"
+    }
+  ],
+  "messages": [
+    {
+      "id": "m1",
+      "from": "producer",
+      "to": "mem",
+      "y": 185,
+      "label": "data = 42（普通写）",
+      "variant": "default"
+    },
+    {
+      "id": "m2",
+      "from": "producer",
+      "to": "mem",
+      "y": 240,
+      "label": "Store ready = 1（release）",
+      "variant": "emphasis",
+      "note": "release：data=42 必须先对外可见，不得重排到它之后"
+    },
+    {
+      "id": "m3",
+      "from": "consumer",
+      "to": "mem",
+      "y": 320,
+      "label": "轮询 Load ready == 1（acquire）",
+      "variant": "emphasis",
+      "note": "acquire：它之后的读取不得重排到它之前"
+    },
+    {
+      "id": "m4",
+      "from": "consumer",
+      "to": "mem",
+      "y": 385,
+      "label": "读 data → 必见 42",
+      "variant": "default"
+    }
+  ],
+  "activations": [
+    {
+      "participant": "producer",
+      "from": 180,
+      "to": 250,
+      "type": "frontend"
+    },
+    {
+      "participant": "consumer",
+      "from": 315,
+      "to": 395,
+      "type": "backend"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "实测结果",
+      "items": [
+        "20000 轮握手，消费者读到脏数据 0 次",
+        "若 ready 换成普通变量：编译器/CPU 可重排，可能读到 0",
+        "-race 对普通变量版本会报告数据竞争"
+      ]
+    },
+    {
+      "dot": "violet",
+      "title": "两条屏障各管一半",
+      "items": [
+        "atomic.Store = release：之前的写入先对外可见",
+        "atomic.Load = acquire：之后的读取在后发生",
+        "一送一收，data 与 ready 之间建立 happens-before"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "arm64 实测指令",
+      "items": [
+        "Store → STLR（release），Load → LDAR（acquire）",
+        "AddInt64 → LDADDAL 同样自带屏障",
+        "无需手写栅栏指令，原子操作已包含"
+      ]
+    }
+  ]
+}
