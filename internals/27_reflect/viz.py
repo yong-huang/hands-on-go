@@ -3,7 +3,7 @@
 
   reflect_json.png  —— 字段/tag 清单 + miniJSON vs encoding/json 对拍
 
-（机制图已由 Archify 三件套 images/flow.{workflow.json,html,svg} 承接）
+（机制图已由图三件套 images/flow.{workflow.json,html,svg} 承接）
 
 用法：python3 viz.py   # 输出到 images/
 """

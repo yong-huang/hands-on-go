@@ -90,7 +90,7 @@ JSON 快照里有全部 42 条调度事件（`step`/`p`/`g`/`src`）。例如第
 internals/18_gmp/
 ├── README.md                      # 本文件：原理 + 运行指引 + 面试要点
 ├── main.go                        # 迷你 GMP 调度器：三级水位建模 + 调度事件记录（-json 输出快照）
-├── viz.py                         # 只画实测数据图：gmp_stats.png（机制图已改用 Archify）
+├── viz.py                         # 只画实测数据图：gmp_stats.png（机制图已改用架构图三件套）
 └── images/
     ├── gmp.architecture.json      # 图源：G/M/P 架构与 syscall handoff（Typed JSON IR）
     ├── gmp.html                   # 交互版：可缩放/高亮连线的自包含页面

@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """25_defer 数据图：go run main.go -json，画 defer vs 手动 Unlock 的 ns/op 对照。
 
-机制图（执行顺序）已改为 Archify 时序图 images/order.sequence.json，
-本脚本只负责实测数据图 —— Archify 画不了实测数据，保留 matplotlib。
+机制图（执行顺序）已改为时序图 images/order.sequence.json，
+本脚本只负责实测数据图 —— 架构图画不了实测数据，保留 matplotlib。
 
 用法：python3 viz.py
 """

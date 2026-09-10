@@ -3,7 +3,7 @@
 
   1. images/alloc_delta.png —— 每个场景调用 20 万次的 TotalAlloc 增量（log 轴）
 
-（机制图已改由 Archify 图管线绘制：images/escape.* 三件套）
+（机制图已改由图源管线绘制：images/escape.* 三件套）
 
 用法：python3 viz.py
 """

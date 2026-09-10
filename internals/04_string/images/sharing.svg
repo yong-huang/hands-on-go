@@ -287,7 +287,7 @@ svg[data-theme="dark"] { --bg: #020617; --grid: #1e293b; --text: #ffffff; --text
 rect.c-bg-rect { fill: var(--bg); }
 </style><rect width="695" height="466" class="c-bg-rect" x="11" y="47"/>
         <title id="archify-diagram-title">字符串切片 s[1:5]：只移指针，不拷贝字节</title>
-        <desc id="archify-diagram-description">由 Archify 生成的架构图。</desc>
+        <desc id="archify-diagram-description">交互式架构图（可在浏览器中打开探索）。</desc>
         <!-- Definitions -->
         <defs>
           <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">

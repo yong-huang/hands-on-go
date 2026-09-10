@@ -3,7 +3,7 @@
 
   1. images/addr_density.png —— tiny/small/large 三类对象的地址分布实证
 
-（机制图已改由 Archify 图管线绘制：images/tiers.* 三件套）
+（机制图已改由图源管线绘制：images/tiers.* 三件套）
 
 用法：python3 viz.py
 """

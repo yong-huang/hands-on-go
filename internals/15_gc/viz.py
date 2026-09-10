@@ -3,7 +3,7 @@
 
   1. images/gc_pause.png —— 真实 GC 停顿（ms）与堆对象回收量
 
-（机制图已改由 Archify 图管线绘制：images/tricolor.* 三件套）
+（机制图已改由图源管线绘制：images/tricolor.* 三件套）
 
 用法：python3 viz.py
 """

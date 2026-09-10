@@ -31,7 +31,7 @@ NN_topic/
 ## 新增实验
 
 想给系列加一篇？照 [PROJECT_TEMPLATE.md](PROJECT_TEMPLATE.md) 执行：取号规则、README 八节骨架、
-Archify 图三件套管线、数据图约定与收尾自检清单都在里面。
+架构图三件套管线、数据图约定与收尾自检清单都在里面。
 
 ## 环境要求
 

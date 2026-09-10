@@ -50,16 +50,16 @@ internals/31_your_topic/
 > （或本地打开 [`images/<fig>.html`](images/<fig>.html)）。
 ```
 
-## 4. 图三件套管线（Archify）
+## 4. 图三件套管线
 
-每实验 1~2 张聚焦图（一节一图，不凑数）。机制/流程/状态用 Archify；
-**实测数据（基准 ns、内存曲线）用 matplotlib PNG，不要硬塞进 Archify**。
+每实验 1~2 张聚焦图（一节一图，不凑数）。机制/流程/状态用架构图图源（Typed JSON IR）表达；
+**实测数据（基准 ns、内存曲线）用 matplotlib PNG，不要硬塞进架构图**。
 
 ```bash
 A=~/.agents/skills/archify/bin/archify.mjs
 S=~/.agents/skills/hands-on-series/scripts
 cd internals/31_your_topic
-# 写图源前读 archify skill 的 schema 与示例；workflow 用 schema_version 2
+# 图源由 archify skill 生成；写图源前读该 skill 的 schema 与示例；workflow 用 schema_version 2
 node "$A" validate <type> images/<fig>.<type>.json --quality showcase --json   # 0 错 0 警才算过
 node "$A" deliver  <type> images/<fig>.<type>.json images/<fig>.html --quality showcase --json
 node "$A" visual-check images/<fig>.html --json                                # 四视口零溢出

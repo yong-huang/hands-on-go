@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""30_runtime 可视化：go run main.go -json，画 2 张数据 PNG（机制图由 Archify 承接）。
+"""30_runtime 可视化：go run main.go -json，画 2 张数据 PNG（机制图由架构图三件套承接）。
 
   1. images/runtime_sched.png —— 4 个 M 的泳道图（run/steal/wait/idle）+ 调度统计
   2. images/runtime_alloc.png —— 分配器/GC 统计柱状图（实测数据）

@@ -83,7 +83,7 @@ go run main.go -json    # JSON 快照（viz.py 画图用的就是它）
 internals/30_runtime/
 ├── README.md                        # 本文件：原理 + 运行指引 + 面试要点
 ├── main.go                          # 主教材：GMP 调度 + 两级分配器 + 标记清扫 GC（-json 输出快照）
-├── viz.py                           # 只画两张实测数据 PNG（机制图已交给 Archify）
+├── viz.py                           # 只画两张实测数据 PNG（机制图已交给架构图三件套）
 └── images/
     ├── memstats.architecture.json   # 图源：MemStats 字段 × 分配层级（Typed JSON IR）
     ├── memstats.html                # 交互版：可缩放/高亮连线的自包含页面

@@ -4,7 +4,7 @@
   1. images/spin.png       —— 竞争者 waiters 在几微秒内爬满（自旋窗口极短）
   2. images/starvation.png —— 持续竞争下 starving 位随时间的切换
 
-（state 位布局机制图已由 Archify 图 images/state.svg / state.html 承担）
+（state 位布局机制图已由架构图三件套 images/state.svg / state.html 承担）
 
 用法：python3 viz.py
 """

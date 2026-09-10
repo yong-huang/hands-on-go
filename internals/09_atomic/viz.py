@@ -3,7 +3,7 @@
 
   1. images/atomic_vs_plain.png —— 并发计数：期望 / 非原子(丢更新) / 原子(精确)
 
-（CAS 重试循环与 release/acquire 屏障机制图已由 Archify 图
+（CAS 重试循环与 release/acquire 屏障机制图已由架构图三件套
   images/cas.svg / cas.html 与 images/barrier.svg / barrier.html 承担）
 
 用法：python3 viz.py

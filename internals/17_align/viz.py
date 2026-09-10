@@ -2,7 +2,7 @@
 """17_align 可视化：go run main.go -json 生成快照，画数据图 PNG。
 
   align_sizes.png —— 三个结构体的大小构成（字段内容 vs 填充）实测对比柱状图
-  （机制图 layout 已改为 Archify 交互图，见 images/layout.architecture.json）
+  （机制图 layout 已改为交互式架构图，见 images/layout.architecture.json）
 
 用法：python3 viz.py
 """

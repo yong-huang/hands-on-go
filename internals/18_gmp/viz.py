@@ -3,7 +3,7 @@
 
   gmp_stats.png —— 三种取任务来源的数量/占比对比（真实运行数据）
 
-机制图（GMP 结构与调度流程）已改用 Archify：images/gmp.html / gmp.svg。
+机制图（GMP 结构与调度流程）已改用架构图三件套：images/gmp.html / gmp.svg。
 
 用法：python3 viz.py
 """

@@ -2,7 +2,7 @@
 """21_cgo 数据图：跑三种模式（独立进程）取 RSS 快照，画 1 张 PNG。
 
   cgo_rss.png —— leak / free / go 三模式 分配后 vs GC三遍后 RSS 柱状对比
-  （机制图已改为 Archify：images/ownership.architecture.json → svg/html）
+  （机制图已改为架构图三件套：images/ownership.architecture.json → svg/html）
 
 用法：python3 viz.py
 """

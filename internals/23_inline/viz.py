@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """23_inline 数据图：go run main.go -json 实测，三组 内联 vs noinline 的 ns/op 对照。
 
-  images/inline_ns.png —— 数据图（matplotlib，Archify 画不了实测数据）
+  images/inline_ns.png —— 数据图（matplotlib；架构图画不了实测数据）
 
-机制图（内联决策流程）走 Archify 管线，见 images/inline.workflow.json。
+机制图（内联决策流程）走图源管线，见 images/inline.workflow.json。
 用法：python3 viz.py
 """
 
