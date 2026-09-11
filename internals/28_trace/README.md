@@ -87,7 +87,7 @@ trace 工具告诉你"调了谁、等了谁"，自建时间戳告诉你"每件�
 
 ```text
 internals/28_trace/
-├── README.md                  # 本文件：原理 + 运行指引 + 面试要点
+├── README.md                  # 本文件：原理 + 运行指引 + 深入要点
 ├── main.go                    # 主教材：三类任务 + runtime/trace 录制 + 自建埋点（-json 输出快照）
 ├── viz.py                     # 数据图：读 -json 快照与 sched profile，生成两张 PNG
 └── images/
@@ -98,7 +98,7 @@ internals/28_trace/
     └── trace_sched.png        # 实测数据图：sched profile 调度延迟分解
 ```
 
-## 7. 面试要点
+## 7. 深入要点
 
 **Q：runtime/trace 和 pprof 有什么区别？什么时候用哪个？**
 A：pprof 采样"谁在占 CPU"（等待中的 goroutine 不在样本里）；trace 记录调度事件流，能回答"谁在等、等多久、被谁阻塞"。CPU 热点用 pprof，延迟/卡顿归因用 trace，两者互补。

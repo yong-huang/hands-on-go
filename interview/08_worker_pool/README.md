@@ -120,7 +120,7 @@ close(wp.results)     // 4. 关结果队列 → drain 的 range 退出
 
 ```text
 interview/08_worker_pool/
-├── README.md                      # 本文件：原理 + 运行指引 + 面试要点
+├── README.md                      # 本文件：原理 + 运行指引 + 深入要点
 ├── worker_pool.go                 # 主教材：task/result 定义 → 池实现 → demo（5 workers, 20 tasks）
 ├── viz.py                         # 数据图：串行 vs 池化 + 调度甘特图 → images/worker_pool_scaling.png
 └── images/
@@ -129,7 +129,7 @@ interview/08_worker_pool/
     └── pool.svg                   # README 内嵌双主题矢量图
 ```
 
-## 7. 面试要点
+## 7. 深入要点
 
 **Q：如何控制并发数？**
 A：固定 worker 数量，每个 worker 一个 goroutine 从同一 channel 消费。channel 的多接收者语义保证每个任务只被一个 worker 领走，同时在执行的任务数不超过 worker 数。

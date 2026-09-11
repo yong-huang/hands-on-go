@@ -124,7 +124,7 @@ func (rb *RingBuffer) Read() (int, bool) {
 
 ```text
 interview/06_ring_buffer/
-├── README.md                     # 本文件：原理 + 运行指引 + 面试要点
+├── README.md                     # 本文件：原理 + 运行指引 + 深入要点
 ├── ring_buffer.go                # 主教材：Write/Read/判满判空 + 回绕/FIFO 演示
 └── images/
     ├── ring.architecture.json    # 图源：固定数组 + head/tail 回绕架构（Typed JSON IR）
@@ -132,7 +132,7 @@ interview/06_ring_buffer/
     └── ring.svg                  # README 内嵌双主题矢量图
 ```
 
-## 7. 面试要点
+## 7. 深入要点
 
 **Q：如何区分"满"和"空"？**
 A：`head == tail` 时两种状态重合，必须破坏对称性。方案 A：加 `count` 字段，`count==cap` 满、`count==0` 空，简单直观；方案 B：浪费一个槽位，判满 `(tail+1)%cap == head`、判空 `head == tail`，省字段但少存一个元素。本实验用方案 A。

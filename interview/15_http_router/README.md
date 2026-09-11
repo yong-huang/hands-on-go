@@ -103,7 +103,7 @@ type Router struct {
 
 ```text
 interview/15_http_router/
-├── README.md                    # 本文件：原理 + 运行指引 + 面试要点
+├── README.md                    # 本文件：原理 + 运行指引 + 深入要点
 ├── http_router.go               # 主教材：路由表 → matchRoute → ServeHTTP → 中间件 → httptest 演示
 └── images/
     ├── router.dataflow.json     # 图源：请求→方法分派→逐段匹配→params 注入→handler（Typed JSON IR）
@@ -111,7 +111,7 @@ interview/15_http_router/
     └── router.svg               # README 内嵌双主题矢量图
 ```
 
-## 7. 面试要点
+## 7. 深入要点
 
 **Q：和标准库 `http.ServeMux` 相比，这个路由器差在哪？**
 A：老版 ServeMux 只做前缀匹配 + 精确匹配，无路径参数、方法要在 handler 里自己判断；Go 1.22 起 ServeMux 支持 `GET /users/{id}` 形式的方法+通配符模式并返回 405，但仍不支持正则约束、中间件与路由分组。手写路由器（以及 chi/echo）的价值在于参数捕获、中间件链和可组合的路由组。

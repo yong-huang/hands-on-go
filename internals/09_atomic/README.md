@@ -96,7 +96,7 @@ for {
 
 ```text
 internals/09_atomic/
-├── README.md                        # 本文件：原理 + 运行指引 + 面试要点
+├── README.md                        # 本文件：原理 + 运行指引 + 深入要点
 ├── main.go                          # 主教材：丢更新对比 → CAS 循环 → 屏障握手（-json 输出数据）
 ├── viz.py                           # 数据图脚本：读 -json 快照画 atomic_vs_plain 柱状图
 └── images/
@@ -109,7 +109,7 @@ internals/09_atomic/
     └── atomic_vs_plain.png          # 数据图：期望/非原子/原子实测柱状（matplotlib 绘制）
 ```
 
-## 7. 面试要点
+## 7. 深入要点
 
 **Q：为什么并发 `i++` 会丢更新？**
 A：`i++` 是读-改-写三步，两个 goroutine 读到同一旧值后各自写回，后写覆盖先写。实测 160 万次只落地十几万；`-race` 能直接检出该竞争。

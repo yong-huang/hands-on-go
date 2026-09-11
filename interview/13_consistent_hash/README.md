@@ -106,7 +106,7 @@ sort.Slice(ch.ring, ...) // 保持有序
 
 ```text
 interview/13_consistent_hash/
-├── README.md                    # 本文件：原理 + 运行指引 + 面试要点
+├── README.md                    # 本文件：原理 + 运行指引 + 深入要点
 ├── consistent_hash.go           # 主教材：哈希环 Add/Remove/Get + 迁移率实测
 └── images/
     ├── hash.architecture.json   # 图源：哈希环顺时针查找（Typed JSON IR）
@@ -114,7 +114,7 @@ interview/13_consistent_hash/
     └── hash.svg                 # README 内嵌双主题矢量图
 ```
 
-## 7. 面试要点
+## 7. 深入要点
 
 **Q：一致性哈希和取模哈希的区别？**
 A：取模 `hash(key) % N` 在 N 变化时几乎全部 key 重新映射；一致性哈希只迁移被新节点接管的弧段，约 1/N（实测 3→4 节点迁 30.3%，取模≈100%）。代价是 Get 从 O(1) 变 O(log M)，且需要虚拟节点保证均衡。

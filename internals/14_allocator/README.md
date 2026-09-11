@@ -83,7 +83,7 @@ python3 viz.py          # 重新生成 images/addr_density.png
 
 ```text
 internals/14_allocator/
-├── README.md                        # 本文件：原理 + 运行指引 + 面试要点
+├── README.md                        # 本文件：原理 + 运行指引 + 深入要点
 ├── main.go                          # 主教材：tiny/small/large 三组地址实测（-json 输出快照）
 ├── viz.py                           # 数据图脚本：地址分布 → images/addr_density.png
 └── images/
@@ -93,7 +93,7 @@ internals/14_allocator/
     └── addr_density.png             # 实测数据图：三类对象地址分布
 ```
 
-## 7. 面试要点
+## 7. 深入要点
 
 **Q：Go 的小对象分配为什么快？**
 A：三级结构把锁从热路径上拿掉了——每个 P 的 mcache 私有，拿对象只是内存读写；只有 miss 才加锁上溯 mcentral、mheap。TCMalloc 同款思想。

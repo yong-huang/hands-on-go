@@ -79,7 +79,7 @@ User, Kind=struct, 5 字段
 
 ```text
 internals/27_reflect/
-├── README.md                 # 本文件：原理 + 运行指引 + 面试要点
+├── README.md                 # 本文件：原理 + 运行指引 + 深入要点
 ├── main.go                   # 主教材：TypeOf → New/Set → Call → miniJSON 对拍（-json 快照）
 ├── viz.py                    # 数据图：字段表 + 对拍结果（实测绘制，输出到 images/）
 └── images/
@@ -89,7 +89,7 @@ internals/27_reflect/
     └── reflect_json.png      # 实测数据图：字段/tag/偏移表 + 两份 JSON 对拍
 ```
 
-## 7. 面试要点
+## 7. 深入要点
 
 **Q：为什么 `ValueOf(u)` 写不了字段，`New+Elem` 就能写？**
 A：`ValueOf(u)` 持有的是 u 的拷贝且不可寻址，写它没有意义；`New` 分配了真实内存，`Elem()` 解引用后 Value 记录了地址，`CanSet` 才为 true。

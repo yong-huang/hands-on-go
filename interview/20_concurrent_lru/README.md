@@ -103,7 +103,7 @@ type shard struct {
 
 ```text
 interview/20_concurrent_lru/
-├── README.md                      # 本文件：原理 + 运行指引 + 面试要点
+├── README.md                      # 本文件：原理 + 运行指引 + 深入要点
 ├── concurrent_lru.go              # 主教材：链表 → shard → 路由 → Get/Put → 并发压测与正确性校验
 └── images/
     ├── clru.architecture.json     # 图源：分片路由与锁粒度（Typed JSON IR）
@@ -111,7 +111,7 @@ interview/20_concurrent_lru/
     └── clru.svg                   # README 内嵌双主题矢量图
 ```
 
-## 7. 面试要点
+## 7. 深入要点
 
 **Q：分片 LRU 与 01 的单线程 LRU，代码上差在哪？**
 A：三层变化——① 把 `Mutex + map + list` 打包成 `shard` 结构；② 顶层加 `getShard` 哈希路由；③ 锁从一把变 32 把。链表部分（哨兵、pushFront、popBack）与单线程版完全同构，可直接复用——这说明分片是**并发层的组合模式**，不侵入 LRU 本身。

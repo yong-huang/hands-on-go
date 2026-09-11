@@ -92,7 +92,7 @@ depth=256  StackInuse=2272 KB   ← 平台期：栈已够用，扩容停止
 
 ```text
 internals/07_goroutine/
-├── README.md                        # 本文件：原理 + 运行指引 + 面试要点
+├── README.md                        # 本文件：原理 + 运行指引 + 深入要点
 ├── main.go                          # 主教材：goid → 栈向下生长 → 扩容台阶 → 并发隔离（-json 输出快照）
 ├── viz.py                           # 数据图脚本：读 -json 快照画 growth/isolation 两张 PNG
 └── images/
@@ -103,7 +103,7 @@ internals/07_goroutine/
     └── isolation.png                # 数据图：N 个并发栈总量线性叠加（matplotlib 实测绘制）
 ```
 
-## 7. 面试要点
+## 7. 深入要点
 
 **Q：goroutine 初始栈多大？为什么这么设计？**
 A：约 2KB（线程固定 MB 级）。小栈让"开几十万 goroutine"的内存成本可接受；不够用时由 runtime 的 `morestack`/`copystack` 自动翻倍扩容，用户零配置。

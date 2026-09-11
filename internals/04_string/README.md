@@ -108,7 +108,7 @@ string 只读、[]byte 可写，语义冲突不能共用内存，两个方向各
 
 ```text
 internals/04_string/
-├── README.md                        # 本文件：原理 + 运行指引 + 面试要点
+├── README.md                        # 本文件：原理 + 运行指引 + 深入要点
 ├── main.go                          # 主教材：unsafe 读头 → 共享 → 双向拷贝（-json 输出快照）
 └── images/
     ├── header.architecture.json     # 图源：两字段头与数据所在区域（Typed JSON IR）
@@ -122,7 +122,7 @@ internals/04_string/
     └── convert.svg                  # README 内嵌双主题矢量图
 ```
 
-## 7. 面试要点
+## 7. 深入要点
 
 **Q：string 的底层结构是什么？和 slice 差在哪？**
 A：{str 指针, len 字节数} 两字段、16 字节，比 slice 少 cap；布局是官方承诺的稳定结构。

@@ -145,7 +145,7 @@ func (c *LFUCache) Put(key, value int) {
 
 ```text
 interview/02_lfu_cache/
-├── README.md                   # 本文件：原理 + 运行指引 + 面试要点
+├── README.md                   # 本文件：原理 + 运行指引 + 深入要点
 ├── lfu_cache.go                # 主教材：三件套实现 + 四步淘汰演示
 └── images/
     ├── lfu.architecture.json   # 图源：频次桶架构（Typed JSON IR）
@@ -153,7 +153,7 @@ interview/02_lfu_cache/
     └── lfu.svg                 # README 内嵌双主题矢量图
 ```
 
-## 7. 面试要点
+## 7. 深入要点
 
 **Q：LFU 的 Get/Put 为什么能做到 O(1)？**
 A：三个 O(1) 拼起来——map 定位条目、`elem` 指针从旧链表 O(1) 摘除、`minFreq` 直接定位淘汰桶取 `Back()`。任何一步退化成遍历（比如找最小频率）整体就崩。

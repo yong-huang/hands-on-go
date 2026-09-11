@@ -97,7 +97,7 @@ go build -gcflags=-m main.go 2>&1 | grep "moved to heap"
 
 ```text
 internals/24_closure/
-├── README.md                      # 本文件：原理 + 运行指引 + 面试要点
+├── README.md                      # 本文件：原理 + 运行指引 + 深入要点
 ├── main.go                        # 主教材：循环捕获 vs 传参修复 vs 引用捕获（-json 输出快照）
 ├── viz.py                         # 数据图：跑 main.go -json 实测地址散点 → images/closure_addr.png
 └── images/
@@ -107,7 +107,7 @@ internals/24_closure/
     └── closure_addr.png           # 数据图：实测地址分布（matplotlib，每次运行重生成）
 ```
 
-## 7. 面试要点
+## 7. 深入要点
 
 **Q：Go 闭包捕获的是值还是引用？**
 A：变量（引用捕获）。创建闭包后外层修改变量，闭包读到新值：demo 里创建时 `x=10`，改 99 后闭包读到 99，两个闭包捕获同一变量时地址相等。想拍快照必须显式传参拷贝。

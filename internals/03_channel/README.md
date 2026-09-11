@@ -111,7 +111,7 @@ close 置位后：接收先把 buf 里的残留数据读完（30、40、500、60
 
 ```text
 internals/03_channel/
-├── README.md                            # 本文件：原理 + 运行指引 + 面试要点
+├── README.md                            # 本文件：原理 + 运行指引 + 深入要点
 ├── main.go                              # 主教材：hchan 收发/阻塞/回绕演示（-json 快照）
 └── images/
     ├── channel_ring.lifecycle.json      # 图源：hchan 环形队列状态机（Typed JSON IR）
@@ -119,7 +119,7 @@ internals/03_channel/
     └── channel_ring.svg                 # README 内嵌双主题矢量图
 ```
 
-## 7. 面试要点
+## 7. 深入要点
 
 **Q：channel 底层是什么数据结构？**
 A：带锁的环形队列（hchan）：buf 环形数组 + qcount/dataqsiz + sendx/recvx 两个游标 +

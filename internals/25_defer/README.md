@@ -94,7 +94,7 @@ Go 1.14+ 绝大多数 defer 走 open-coded：编译器在函数返回点直接�
 
 ```text
 internals/25_defer/
-├── README.md                      # 本文件：原理 + 运行指引 + 面试要点
+├── README.md                      # 本文件：原理 + 运行指引 + 深入要点
 ├── main.go                        # 主教材：LIFO + 参数立即求值 + defer vs 手动 Unlock 基准（-json 输出快照）
 ├── viz.py                         # 数据图脚本：go run main.go -json → images/defer_perf.png
 └── images/
@@ -104,7 +104,7 @@ internals/25_defer/
     └── defer_perf.png             # 实测数据图：defer vs 手动 Unlock 对照（matplotlib）
 ```
 
-## 7. 面试要点
+## 7. 深入要点
 
 **Q：defer 的执行顺序是什么？参数什么时候求值？**
 A：LIFO，后注册的先执行；参数在 `defer` 语句执行那一刻求值并存快照，函数返回时才真正执行函数体。要读"最终值"就包闭包。

@@ -132,7 +132,7 @@ func (c *LRUCache) Put(key, value int) {
 
 ```text
 interview/01_lru_cache/
-├── README.md                      # 本文件：原理 + 运行指引 + 面试要点
+├── README.md                      # 本文件：原理 + 运行指引 + 深入要点
 ├── lru_cache.go                   # 主教材：LRU 实现 + 四段演示（Put/淘汰/Get/随机）
 ├── viz.py                         # 数据图脚本：跑 go run 解析输出 → lru_runtime.png
 └── images/
@@ -142,7 +142,7 @@ interview/01_lru_cache/
     └── lru_runtime.png            # 数据图：操作分布 + 命中率（matplotlib）
 ```
 
-## 7. 面试要点
+## 7. 深入要点
 
 **Q：Get/Put 为什么能 O(1)？分别靠哪个结构？**
 A：查找靠 map 的哈希 O(1)；移动顺序靠双向链表 O(1)（MoveToFront/Remove 都是纯指针操作）；淘汰是 Remove(Back) + delete(map)，两步都 O(1)。

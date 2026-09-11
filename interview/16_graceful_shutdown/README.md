@@ -87,7 +87,7 @@ demo 里 req-1/req-2 是**直接操作 WaitGroup 的裸 goroutine**，没有走 
 
 ```text
 interview/16_graceful_shutdown/
-├── README.md                     # 本文件：原理 + 运行指引 + 面试要点
+├── README.md                     # 本文件：原理 + 运行指引 + 深入要点
 ├── graceful_shutdown.go          # 主教材：middleware 计数 → 信号 → drain → Shutdown
 └── images/
     ├── shutdown.workflow.json    # 图源：关闭流程（Typed JSON IR）
@@ -98,7 +98,7 @@ interview/16_graceful_shutdown/
     └── timeline.svg              # README 内嵌双主题矢量图
 ```
 
-## 7. 面试要点
+## 7. 深入要点
 
 **Q：如何防止请求丢失？**
 A：`Shutdown` 关 listener 不关活跃连接 + middleware 层 WaitGroup 计数 + `wg.Wait()` 等清零，三者缺一不可。

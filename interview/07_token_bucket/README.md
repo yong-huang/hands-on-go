@@ -122,7 +122,7 @@ func (tb *TokenBucket) Allow() bool {
 
 ```text
 interview/07_token_bucket/
-├── README.md                  # 本文件：原理 + 运行指引 + 面试要点
+├── README.md                  # 本文件：原理 + 运行指引 + 深入要点
 ├── token_bucket.go            # 主教材：TokenBucket → refill/Allow → 并发与顺序演示
 └── images/
     ├── bucket.dataflow.json   # 图源：令牌补充→桶→取令牌数据流（Typed JSON IR）
@@ -130,7 +130,7 @@ interview/07_token_bucket/
     └── bucket.svg             # README 内嵌双主题矢量图
 ```
 
-## 7. 面试要点
+## 7. 深入要点
 
 **Q：令牌桶为什么"懒补充"而不是起一个定时器？**
 A：定时器方案有空闲开销、精度受 tick 限制，还有 goroutine 生命周期问题；lazy 方案在每次 `Allow()` 时按 `now-last` 一次性结算，无常驻线程、数学上精确，闲置零开销。`golang.org/x/time/rate` 用的就是同样的思路。

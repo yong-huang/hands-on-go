@@ -88,7 +88,7 @@ G 调用 `syscall.Flock` 后进入 `_Gsyscall` 状态，M 带着它一起陷入�
 
 ```text
 internals/19_syscall/
-├── README.md                      # 本文件：原理 + 运行指引 + 面试要点
+├── README.md                      # 本文件：原理 + 运行指引 + 深入要点
 ├── main.go                        # 主教材：8 worker 抢 flock，五阶段快照（-json 输出）
 ├── viz.py                         # 数据图：go run main.go -json → 两张 PNG 进 images/
 └── images/
@@ -99,7 +99,7 @@ internals/19_syscall/
     └── syscall_waiting.png        # 数据图：卡锁 worker 数与新增线程数对照
 ```
 
-## 7. 面试要点
+## 7. 深入要点
 
 **Q：GOMAXPROCS 限制的到底是线程数吗？**
 A：不是。它限制的是 P 的数量，即同时执行 Go 代码的并行度。G 阻塞在真实 syscall 上时 M 会被扣在内核里，P 被移交后新建/唤醒的 M 都不计入 P——本实验 GOMAXPROCS=2 却实测到 11 个线程。

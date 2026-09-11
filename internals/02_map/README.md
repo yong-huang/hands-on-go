@@ -118,7 +118,7 @@ if float64(m.count+1)/float64(m.bucketCount()) > 6.5 { m.grow() }
 
 ```text
 internals/02_map/
-├── README.md                       # 本文件：原理 + 运行指引 + 面试要点
+├── README.md                       # 本文件：原理 + 运行指引 + 深入要点
 ├── main.go                         # 主教材：哈希定位 → 插入扩容 → 查找 → 溢出链（-json 输出快照）
 ├── viz.py                          # 实测数据图：go run main.go -json → images/occupancy.png
 └── images/
@@ -128,7 +128,7 @@ internals/02_map/
     └── occupancy.png               # 实测数据图：桶数组占用分布（matplotlib）
 ```
 
-## 7. 面试要点
+## 7. 深入要点
 
 **Q：map 查找一个 key 的完整过程是什么？**
 A：hash(key) → 低 B 位定桶 → 逐槽比较 tophash → 相等再比 key → 不中沿溢出链继续。

@@ -118,7 +118,7 @@ peekNext() 取堆顶 → 没到期就 select{ done, time.After(waitDuration) } �
 
 ```text
 interview/19_task_scheduler/
-├── README.md                        # 本文件：原理 + 运行指引 + 面试要点
+├── README.md                        # 本文件：原理 + 运行指引 + 深入要点
 ├── task_scheduler.go                # 主教材：heap 接口 → Scheduler → Start/Stop → demo
 └── images/
     ├── scheduler.architecture.json  # 图源：提交→堆→调度循环→到期执行（Typed JSON IR）
@@ -126,7 +126,7 @@ interview/19_task_scheduler/
     └── scheduler.svg                # README 内嵌双主题矢量图
 ```
 
-## 7. 面试要点
+## 7. 深入要点
 
 **Q：为什么用堆而不是每个任务一个 `time.AfterFunc`？和时间轮比呢？**
 A：`time.AfterFunc` 是每任务一个 runtime timer，海量任务时 timer 对象与 runtime 内部最小堆都成为负担，且各自独占 goroutine 触发。小顶堆方案只有一个调度 goroutine，插入/弹出 O(log n)。时间轮（timing wheel）把任务放进刻度桶，插入与到期触发都是 O(1)，适合海量短延时任务（Kafka、Netty 的做法）；但精度受刻度限制，跨轮任务需要层级时间轮。任务量小、精度高选堆；任务量巨大、延时范围集中选时间轮。

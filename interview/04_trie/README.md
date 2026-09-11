@@ -109,7 +109,7 @@ func (t *Trie) findNode(prefix string) *TrieNode {
 
 ```text
 interview/04_trie/
-├── README.md                    # 本文件：原理 + 运行指引 + 面试要点
+├── README.md                    # 本文件：原理 + 运行指引 + 深入要点
 ├── trie.go                      # 主教材：Insert/Search/StartsWith/findNode/Autocomplete + 演示
 └── images/
     ├── trie.architecture.json   # 图源：children map + isEnd，app 查询路径高亮（Typed JSON IR）
@@ -117,7 +117,7 @@ interview/04_trie/
     └── trie.svg                 # README 内嵌双主题矢量图
 ```
 
-## 7. 面试要点
+## 7. 深入要点
 
 **Q：Trie 和 map 相比，前缀查询差在哪？**
 A：`StartsWith`/`Autocomplete` 在 map 上只能 O(n·L) 全量扫描所有 key；Trie 只走一条 O(L) 路径，补全再花 O(k) DFS。反过来，精确查找 map 平均 O(1) 优于 Trie 的 O(L)。Trie 擅长前缀操作，map 擅长精确查找，二者互补。

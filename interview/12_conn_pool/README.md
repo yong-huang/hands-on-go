@@ -115,7 +115,7 @@ Put 把连接包回 `&conn{resource: c, createdAt: time.Now()}` 放回队列；�
 
 ```text
 interview/12_conn_pool/
-├── README.md                          # 本文件：原理 + 运行指引 + 面试要点
+├── README.md                          # 本文件：原理 + 运行指引 + 深入要点
 ├── conn_pool.go                       # 主教材：池核心（Get/Put/Close）+ 三阶段 demo
 └── images/
     ├── connpool.architecture.json     # 图源：空闲队列 + 信号量限流架构（Typed JSON IR）
@@ -123,7 +123,7 @@ interview/12_conn_pool/
     └── connpool.svg                   # README 内嵌双主题矢量图
 ```
 
-## 7. 面试要点
+## 7. 深入要点
 
 **Q：maxOpen 达到后应该怎么办？本实现是什么策略？**
 A：本实现快速失败，直接返回 error（demo 输出 `max open connections reached` 可证）。生产级常用**阻塞等待**：select 带超时等 idle channel 归还，即「Get 空则建、建不了则等」；还有 LRU 驱逐、动态扩容等策略。

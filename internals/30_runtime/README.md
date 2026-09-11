@@ -81,7 +81,7 @@ go run main.go -json    # JSON 快照（viz.py 画图用的就是它）
 
 ```text
 internals/30_runtime/
-├── README.md                        # 本文件：原理 + 运行指引 + 面试要点
+├── README.md                        # 本文件：原理 + 运行指引 + 深入要点
 ├── main.go                          # 主教材：GMP 调度 + 两级分配器 + 标记清扫 GC（-json 输出快照）
 ├── viz.py                           # 只画两张实测数据 PNG（机制图已交给架构图三件套）
 └── images/
@@ -92,7 +92,7 @@ internals/30_runtime/
     └── runtime_alloc.png            # 实测：分配器 + GC 总账柱状图
 ```
 
-## 7. 面试要点
+## 7. 深入要点
 
 **Q：`runtime.MemStats` 里 `TotalAlloc`、`HeapAlloc`、`HeapSys`、`Sys` 有什么区别？**
 A：`TotalAlloc` 是累计分配字节数，只增不减，用来算吞吐；`HeapAlloc` 是当前存活堆字节（= HeapInuse 减去可释放部分，约等于 runtime 里 `heap_live`），GC 就看它涨没涨过 `HeapSys` 的 GOGC 比例；`HeapSys` 是向 OS 申请的堆总量（含已归还但未归还 OS 的）；`Sys` 是进程从 OS 预留的全部内存，堆之外还有栈、元数据等。

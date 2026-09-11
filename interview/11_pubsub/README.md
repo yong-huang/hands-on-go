@@ -146,7 +146,7 @@ ps.mu.Unlock()
 
 ```text
 interview/11_pubsub/
-├── README.md                      # 本文件：原理 + 运行指引 + 面试要点
+├── README.md                      # 本文件：原理 + 运行指引 + 深入要点
 ├── pubsub.go                      # 主教材：订阅/发布/退订/慢消费者 + demo
 └── images/
     ├── pubsub.architecture.json   # 图源：Broker 扇出架构（Typed JSON IR）
@@ -154,7 +154,7 @@ interview/11_pubsub/
     └── pubsub.svg                 # README 内嵌双主题矢量图
 ```
 
-## 7. 面试要点
+## 7. 深入要点
 
 **Q：Publish 的扇出语义是什么？消息会丢吗？**
 A：`select + default` 非阻塞发送，订阅者缓冲满即丢弃（尽力而为语义），返回值 `sent` 报告送达数。要保证不丢：改阻塞发送让发布者被背压、或引入 ack + 持久化——取决于业务能容忍丢消息还是容忍发布者变慢。

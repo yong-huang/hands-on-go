@@ -90,7 +90,7 @@ type sliceHeader struct {
 
 ```text
 internals/01_slices/
-├── README.md                      # 本文件：原理 + 运行指引 + 面试要点
+├── README.md                      # 本文件：原理 + 运行指引 + 深入要点
 ├── main.go                        # 主教材：unsafe 读头 → 扩容 → 共享 → 分离（-json 输出快照）
 └── images/
     ├── sharing.architecture.json  # 图源：三视图共享一份数据（Typed JSON IR）
@@ -101,7 +101,7 @@ internals/01_slices/
     └── realloc.svg                # README 内嵌双主题矢量图
 ```
 
-## 7. 面试要点
+## 7. 深入要点
 
 **Q：slice 作为参数传递，函数内 append 为什么有时外面看不到？**
 A：传的是 24 字节头的值拷贝。函数内 append 若在原 cap 内，写入的是同一底层数组（len 不变时外面看不见新元素，但按索引能读到）；若触发扩容则换新数组，完全不影响外面。

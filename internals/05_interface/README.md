@@ -109,7 +109,7 @@ itab 地址相同，不同类型 → 各不相同。
 
 ```text
 internals/05_interface/
-├── README.md                        # 本文件：原理 + 运行指引 + 面试要点
+├── README.md                        # 本文件：原理 + 运行指引 + 深入要点
 ├── main.go                          # 主教材：unsafe 读两字 → 装箱 → 断言 → nil 陷阱（-json 快照）
 └── images/
     ├── iface.architecture.json      # 图源：eface/iface 两字布局 + itab 展开（Typed JSON IR）
@@ -120,7 +120,7 @@ internals/05_interface/
     └── trap.svg                     # README 内嵌双主题矢量图
 ```
 
-## 7. 面试要点
+## 7. 深入要点
 
 **Q：interface{} 和带方法的接口在内存里有什么区别？**
 A：都是两个指针字。空接口是 `{ _type, data }`；带方法接口是 `{ itab, data }`，itab

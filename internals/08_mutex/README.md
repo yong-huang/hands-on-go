@@ -82,7 +82,7 @@ t=  10125µs  locked=true  starving=false waiters=6  ← 被服务后复位
 
 ```text
 internals/08_mutex/
-├── README.md                        # 本文件：原理 + 运行指引 + 面试要点
+├── README.md                        # 本文件：原理 + 运行指引 + 深入要点
 ├── main.go                          # 主教材：state 位解码 → 自旋窗口 → 饥饿模式（-json 输出快照）
 ├── viz.py                           # 数据图脚本：读 -json 快照画 spin/starvation 两张 PNG
 └── images/
@@ -93,7 +93,7 @@ internals/08_mutex/
     └── starvation.png               # 数据图：饥饿模式反复进出（matplotlib 实测绘制）
 ```
 
-## 7. 面试要点
+## 7. 深入要点
 
 **Q：sync.Mutex 的 state 字是怎么布局的？**
 A：bit0 locked、bit1 woken、bit2 starving、bits3+ 是 waiters 计数（高 29 位）。四个信息压进一个 int32，任何状态流转都是一次位运算 CAS，实测 state=25 即"locked + 3 个等待者"。

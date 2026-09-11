@@ -111,7 +111,7 @@ func guard(depth int, log *[]string) (stack string, frames int, err interface{})
 
 ```text
 internals/20_signal/
-├── README.md                      # 本文件：原理 + 运行指引 + 面试要点
+├── README.md                      # 本文件：原理 + 运行指引 + 深入要点
 ├── main.go                        # 主教材：信号闭环 + panic 栈展开（-json 输出快照）
 └── images/
     ├── panic.sequence.json        # 图源：panic 沿 defer 链 LIFO 展开（Typed JSON IR）
@@ -122,7 +122,7 @@ internals/20_signal/
     └── signal.svg                 # README 内嵌双主题矢量图
 ```
 
-## 7. 面试要点
+## 7. 深入要点
 
 **Q：panic 发生后到底执行什么？顺序如何？**
 A：当前函数剩余代码不再执行，runtime.gopanic 逆序执行本函数已注册的所有 defer，然后带着 panic 沿调用栈向上层重复这个过程（栈展开）。本实验实测：evil×6 → guard，LIFO 与注册顺序严格相反。

@@ -82,7 +82,7 @@ python3 viz.py                      # 重新生成 images/alloc_delta.png
 
 ```text
 internals/13_escape/
-├── README.md                        # 本文件：原理 + 运行指引 + 面试要点
+├── README.md                        # 本文件：原理 + 运行指引 + 深入要点
 ├── main.go                          # 主教材：8 场景 + TotalAlloc 实测（-json 输出快照）
 ├── viz.py                           # 数据图脚本：TotalAlloc 增量 → images/alloc_delta.png
 └── images/
@@ -92,7 +92,7 @@ internals/13_escape/
     └── alloc_delta.png              # 实测数据图：8 场景 TotalAlloc 增量（log 轴）
 ```
 
-## 7. 面试要点
+## 7. 深入要点
 
 **Q：什么情况下局部变量会逃逸到堆？**
 A：判据是"指针逃多远"：返回局部指针、被闭包捕获、存进包级变量、装进接口后转手逃出，以及栈帧放不下的大对象。口诀：指针出函数/闭包/大对象/全局可达 → 堆。

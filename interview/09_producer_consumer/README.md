@@ -115,7 +115,7 @@ fmt.Printf(...) // 4. 打印统计
 
 ```text
 interview/09_producer_consumer/
-├── README.md                      # 本文件：原理 + 运行指引 + 面试要点
+├── README.md                      # 本文件：原理 + 运行指引 + 深入要点
 ├── producer_consumer.go           # 主教材：3 生产者 → 缓冲 channel → 2 消费者 + 优雅关闭
 └── images/
     ├── pc.architecture.json       # 图源：多生产者/缓冲 channel/多消费者架构（Typed JSON IR）
@@ -123,7 +123,7 @@ interview/09_producer_consumer/
     └── pc.svg                     # README 内嵌双主题矢量图
 ```
 
-## 7. 面试要点
+## 7. 深入要点
 
 **Q：如何优雅关闭一个多生产者多消费者的 channel？**
 A：等生产者完成（`prodWg.Wait()`）→ 发送方 `close(queue)` → 等消费者排空（`consWg.Wait()`）。核心是 close 必须发生在所有发送之后，否则向已关闭 channel 发送会 panic。

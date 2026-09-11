@@ -125,7 +125,7 @@ func (r *Reader) Read(buf []byte, n int) int {
 
 ```text
 interview/03_read4k/
-├── README.md                  # 本文件：原理 + 运行指引 + 面试要点
+├── README.md                  # 本文件：原理 + 运行指引 + 深入要点
 ├── read4k.go                  # 主教材：Read4 模拟 → Reader 多调用实现 → 四组边界测试
 └── images/
     ├── read4k.dataflow.json   # 图源：4K 读取管线（Typed JSON IR）
@@ -133,7 +133,7 @@ interview/03_read4k/
     └── read4k.svg             # README 内嵌双主题矢量图
 ```
 
-## 7. 面试要点
+## 7. 深入要点
 
 **Q：多调用版本和单调用版本的本质区别是什么？**
 A：单调用（LC157）读一次就结束，多读的字节可以丢弃；多调用（LC158）必须用结构体字段（`buf/pos/size/eof`）保存跨调用状态，`Read4` 多读的部分要缓存到下次，否则数据丢失。

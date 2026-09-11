@@ -110,7 +110,7 @@ dl.locks.Delete(key)
 
 ```text
 interview/14_dist_lock/
-├── README.md                        # 本文件：原理 + 运行指引 + 面试要点
+├── README.md                        # 本文件：原理 + 运行指引 + 深入要点
 ├── dist_lock.go                     # 主教材：锁条目 → Lock/TryLock/Unlock/cleanup → 5 个 Demo
 └── images/
     ├── lock.architecture.json       # 图源：锁架构与 NX/TTL/value 三要素（Typed JSON IR）
@@ -121,7 +121,7 @@ interview/14_dist_lock/
     └── competition.svg              # README 内嵌双主题矢量图
 ```
 
-## 7. 面试要点
+## 7. 深入要点
 
 **Q：Redis 分布式锁为什么 NX 和 TTL 缺一不可？**
 A：NX（不存在才设置）提供互斥——两个客户端只有一个能成功；TTL 提供兜底——持锁方崩溃后锁自动释放，否则死锁。反过来看：只有 NX 没有 TTL，进程崩溃锁成死锁；只有 TTL 没有 NX，所有人都写得上，毫无互斥。

@@ -96,7 +96,7 @@ Waiters = int32(uint32(w))  // 低 32 位
 
 ```text
 internals/10_waitgroup/
-├── README.md                        # 本文件：原理 + 运行指引 + 面试要点
+├── README.md                        # 本文件：原理 + 运行指引 + 深入要点
 ├── main.go                          # 主教材：state 解码 + Add/Done/Wait 时间线
 └── images/
     ├── state.architecture.json      # 图源：state 字位布局（Typed JSON IR）
@@ -107,7 +107,7 @@ internals/10_waitgroup/
     └── timeline.svg                 # README 内嵌双主题矢量图
 ```
 
-## 7. 面试要点
+## 7. 深入要点
 
 **Q：WaitGroup 内部是怎么实现的？有锁吗？**
 A：没有锁。一个 64 位原子 state 字：高 32 位 counter、低 32 位 waiters，加一个 sema 信号量。Add/Done 只 CAS 高半边，Wait 只改低半边并睡在 sema 上，读状态一次原子 Load 即可。

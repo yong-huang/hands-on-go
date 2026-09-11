@@ -122,7 +122,7 @@ func (bf *BloomFilter) MayContain(item string) bool {
 
 ```text
 interview/05_bloom_filter/
-├── README.md                # 本文件：原理 + 运行指引 + 面试要点
+├── README.md                # 本文件：原理 + 运行指引 + 深入要点
 ├── bloom_filter.go          # 主教材：位数组 → 双重哈希 → Add/MayContain → 误判率实测
 └── images/
     ├── bloom.dataflow.json  # 图源：k 个哈希 → 位数组置位 → 查询判定（Typed JSON IR）
@@ -130,7 +130,7 @@ interview/05_bloom_filter/
     └── bloom.svg            # README 内嵌双主题矢量图
 ```
 
-## 7. 面试要点
+## 7. 深入要点
 
 **Q：为什么 Bloom Filter 会有误判，却永远不会漏判？**
 A：判断依据是"k 个哈希位是否全为 1"。Add 过的元素自己把 k 个位置了 1，且位从不清零，所以一定返回 true（无假阴性）；但其他元素可能碰巧把这些位也置成了 1，查询者无法区分 1 的来源，于是产生假阳性。

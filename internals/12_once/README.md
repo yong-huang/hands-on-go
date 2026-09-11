@@ -87,7 +87,7 @@ type Once struct {
 
 ```text
 internals/12_once/
-├── README.md                         # 本文件：原理 + 运行指引 + 面试要点
+├── README.md                         # 本文件：原理 + 运行指引 + 深入要点
 ├── main.go                           # 主教材：100 并发 → 快慢路径 → 内存屏障（-json 输出快照）
 └── images/
     ├── once.architecture.json        # 图源：Once 字段与快/慢路径结构
@@ -98,7 +98,7 @@ internals/12_once/
     └── once_timeline.svg             # README 内嵌双主题矢量图
 ```
 
-## 7. 面试要点
+## 7. 深入要点
 
 **Q：sync.Once 为什么快？每次调用都要加锁吗？**
 A：不加。f 结束后所有调用走快路径——一次原子 `done.Load()` 直接返回，无锁无等待（实测 0.00 ms）；只有首次初始化才碰 mutex。

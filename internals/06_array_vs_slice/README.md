@@ -82,7 +82,7 @@ slice 变量本身只有 3 个字段共 24 字节：`Data`（指向底层数组�
 
 ```text
 internals/06_array_vs_slice/
-├── README.md                          # 本文件：原理 + 运行指引 + 面试要点
+├── README.md                          # 本文件：原理 + 运行指引 + 深入要点
 ├── main.go                            # 主教材：数组内联 → slice header → 传参 → 切片窗口（-json 输出快照）
 └── images/
     ├── layout.architecture.json       # 图源：值内联 vs 24B header + 切片窗口（Typed JSON IR）
@@ -90,7 +90,7 @@ internals/06_array_vs_slice/
     └── layout.svg                     # README 内嵌双主题矢量图
 ```
 
-## 7. 面试要点
+## 7. 深入要点
 
 **Q：`[5]int` 和 `[]int` 作为函数参数有什么本质区别？**
 A：数组按值传递，拷贝整个 40 字节，函数内改动不影响外界；slice 传的是 24 字节 header 的值拷贝，底层数组共享，函数内按索引改元素对外可见（但 append 换底层数组后不回传）。

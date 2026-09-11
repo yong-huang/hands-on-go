@@ -110,7 +110,7 @@ go build -a -gcflags="-m -m" main.go    # -m -m 才报 cannot inline 的完整�
 
 ```text
 internals/23_inline/
-├── README.md                  # 本文件：原理 + 运行指引 + 面试要点
+├── README.md                  # 本文件：原理 + 运行指引 + 深入要点
 ├── main.go                    # 主教材：三组 内联 vs noinline 的裸循环对照（-json 输出快照）
 ├── viz.py                     # 数据图脚本：实跑 go run -json → images/inline_ns.png
 └── images/
@@ -120,7 +120,7 @@ internals/23_inline/
     └── inline_ns.png          # 数据图：三组 ns/op 实测对照（matplotlib）
 ```
 
-## 7. 面试要点
+## 7. 深入要点
 
 **Q：怎么验证一个函数有没有被内联？**
 A：`go build -a -gcflags="-m -m" main.go`。报 `can inline f with cost N` 说明够便宜，调用点出现 `inlining call to f` 才是真的内联了；`cannot inline` 会给出原因（cost 超预算 / marked go:noinline 等）。不加 `-a` 可能因构建缓存什么都不打印。

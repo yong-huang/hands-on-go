@@ -115,7 +115,7 @@ TTL 不是递减计数器，而是存"过期时刻"，剩余时间用 `time.Unti
 
 ```text
 interview/17_mini_redis/
-├── README.md                      # 本文件：原理 + 运行指引 + 面试要点
+├── README.md                      # 本文件：原理 + 运行指引 + 深入要点
 ├── mini_redis.go                  # 全部实现：KVStore → 命令 → 协议解析 → 服务器 → demo
 └── images/
     ├── miniredis.dataflow.json    # 图源：命令数据流五阶段管线（Typed JSON IR）
@@ -123,7 +123,7 @@ interview/17_mini_redis/
     └── miniredis.svg              # README 内嵌双主题矢量图
 ```
 
-## 7. 面试要点
+## 7. 深入要点
 
 **Q：真正的 RESP 协议长什么样？你的简化版差在哪？**
 A：RESP 五种类型——Simple String（`+OK\r\n`）、Error（`-ERR …\r\n`）、Integer（`:1\r\n`）、Bulk String（`$3\r\nfoo\r\n`）、Array（`*2\r\n…`），类型前缀字节 + 长度声明，支持嵌套，客户端还能一次 pipeline 发多条。本项目的内联文本协议靠空格分词，无法表达带空格的 value 和二进制安全的数据，但解析模型（读一行 → 分词 → 分派 → 回写）与真实现同构。

@@ -83,7 +83,7 @@ exp3 同样 300 万次操作：Pool 复用全程 **0 次 GC**；裸 `new` 用 `i
 
 ```text
 internals/11_pool/
-├── README.md                          # 本文件：原理 + 运行指引 + 面试要点
+├── README.md                          # 本文件：原理 + 运行指引 + 深入要点
 ├── main.go                            # 主教材：同轮复用 → GC 两拍 → GC 压力对比（-json 输出快照）
 └── images/
     ├── pool.architecture.json         # 图源：Pool 的 per-P 分片 + victim + New 结构
@@ -94,7 +94,7 @@ internals/11_pool/
     └── gc_lifecycle.svg               # README 内嵌双主题矢量图
 ```
 
-## 7. 面试要点
+## 7. 深入要点
 
 **Q：sync.Pool 为什么快？**
 A：性能靠 per-P 分片——每个 P 一份 `poolLocal`（private 槽 + shared 链），同 P 的 Get/Put 无锁；只有本地空了才去偷别的 P 的 shared 或翻 victim，代价逐级上升。

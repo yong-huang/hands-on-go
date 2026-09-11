@@ -102,7 +102,7 @@ go run main.go -json    # 输出 JSON 快照，供 viz.py 画数据图
 
 ```text
 internals/17_align/
-├── README.md                      # 本文件：原理 + 运行指引 + 面试要点
+├── README.md                      # 本文件：原理 + 运行指引 + 深入要点
 ├── main.go                        # 主教材：unsafe 三件套打印三个结构体的偏移与填充（-json 输出快照）
 ├── viz.py                         # 数据图脚本：读 -json 快照画 align_sizes.png
 └── images/
@@ -112,7 +112,7 @@ internals/17_align/
     └── align_sizes.png            # 实测数据图：内容 vs 填充 柱状图
 ```
 
-## 7. 面试要点
+## 7. 深入要点
 
 **Q：什么是内存对齐？Go 为什么要填充？**
 A：字段偏移必须是其对齐值的倍数，结构体总大小是最大对齐值的倍数。这是硬件约束：不对齐访问在部分架构上变慢甚至 fault，编译器插 padding 换取每次访问都安全高效。

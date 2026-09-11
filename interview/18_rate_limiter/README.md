@@ -116,7 +116,7 @@ rl.requests[ip] = append(valid, now)             // 未满 → 记录并放行
 
 ```text
 interview/18_rate_limiter/
-├── README.md                        # 本文件：原理 + 运行指引 + 面试要点
+├── README.md                        # 本文件：原理 + 运行指引 + 深入要点
 ├── rate_limiter.go                  # 主教材：限流器核心 → 中间件 → extractIP → 4 组演示
 └── images/
     ├── limiter.architecture.json    # 图源：滑动窗口机制架构图（Typed JSON IR）
@@ -124,7 +124,7 @@ interview/18_rate_limiter/
     └── limiter.svg                  # README 内嵌双主题矢量图
 ```
 
-## 7. 面试要点
+## 7. 深入要点
 
 **Q：滑动窗口 vs 固定窗口，临界突刺到底差在哪？**
 A：固定窗口每个窗口一个计数器，边界两侧各放 N 个，瞬时可达 2N；滑动窗口按时间戳精确统计任意连续 window，任意时刻回看 1s 都不会超过 maxRequests。代价是内存 O(n)/key vs O(1)/key，以及每次请求 O(n) 的淘汰遍历。

@@ -108,7 +108,7 @@ go tool pprof -top -inuse_space heap.pprof          # 谁占着内存？
 
 ```text
 internals/22_pprof/
-├── README.md                      # 本文件：原理 + 运行指引 + 面试要点
+├── README.md                      # 本文件：原理 + 运行指引 + 深入要点
 ├── main.go                        # 主教材：热点对比 + cpu/heap profile 落盘 + :6160 端点自检（-json 输出快照）
 ├── viz.py                         # 数据图脚本：跑 main.go -json 取数，画 pprof_speed.png 到 images/
 └── images/
@@ -120,7 +120,7 @@ internals/22_pprof/
 
 注意：`go run main.go` 每次运行都会在实验目录生成 `cpu.pprof` / `heap.pprof`，属分析产物，看完即删，不入库。
 
-## 7. 面试要点
+## 7. 深入要点
 
 **Q：flat 和 cum 有什么区别？优化该看哪个？**
 A：flat 是函数自身消耗，cum 是含调用子孙的累计。流程壳函数（main/bench）flat 为 0 但 cum 100%。优化只挑 flat 最大的函数下手——cum 大说明问题在下游，顺着 cum 找到 flat 集中处即可。

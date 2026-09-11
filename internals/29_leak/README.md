@@ -85,7 +85,7 @@ goroutine 数在"20 个 goroutine 阻塞"阶段从 1 跳到 21 并不再回落�
 
 ```text
 internals/29_leak/
-├── README.md                      # 本文件：原理 + 运行指引 + 面试要点
+├── README.md                      # 本文件：原理 + 运行指引 + 深入要点
 ├── main.go                        # 主教材：三种泄漏 → 阶段快照 → 写 goroutine/heap profile（-json 输出快照）
 ├── viz.py                         # 数据图脚本：go run -json 取数，真实运行生成 images/ 下两张 PNG
 └── images/
@@ -96,7 +96,7 @@ internals/29_leak/
     └── leak_memory.png            # 实测数据图：HeapAlloc 随阶段变化
 ```
 
-## 7. 面试要点
+## 7. 深入要点
 
 **Q：Go 有 GC，为什么还会内存泄漏？**
 A：GC 只回收不可达对象。泄漏的共同点是"一个活着的引用"：阻塞的 goroutine 持有栈、小切片持有大底层数组、全局 map/缓存握着旧数据——引用链可达，GC 就永远不收。

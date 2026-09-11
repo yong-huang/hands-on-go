@@ -88,7 +88,7 @@ JSON 快照里有全部 42 条调度事件（`step`/`p`/`g`/`src`）。例如第
 
 ```text
 internals/18_gmp/
-├── README.md                      # 本文件：原理 + 运行指引 + 面试要点
+├── README.md                      # 本文件：原理 + 运行指引 + 深入要点
 ├── main.go                        # 迷你 GMP 调度器：三级水位建模 + 调度事件记录（-json 输出快照）
 ├── viz.py                         # 只画实测数据图：gmp_stats.png（机制图已改用架构图三件套）
 └── images/
@@ -98,7 +98,7 @@ internals/18_gmp/
     └── gmp_stats.png              # 实测数据图：三种取任务来源对比（viz.py 生成）
 ```
 
-## 7. 面试要点
+## 7. 深入要点
 
 **Q：G、M、P 各是什么？为什么非要中间加一层 P？**
 A：G 是 goroutine（任务+栈），M 是 OS 线程，P 是调度资源（数量=GOMAXPROCS，持本地 runq）。P 把"任务队列"从线程上解耦：M 阻塞在 syscall 时 P 可移交别的 M，线程数与并行度解绑，M 也能被复用。

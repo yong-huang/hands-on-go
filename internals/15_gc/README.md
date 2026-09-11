@@ -86,7 +86,7 @@ python3 viz.py          # 重新生成 images/gc_pause.png
 
 ```text
 internals/15_gc/
-├── README.md                        # 本文件：原理 + 运行指引 + 面试要点
+├── README.md                        # 本文件：原理 + 运行指引 + 深入要点
 ├── main.go                          # 主教材：三色仿真 + 真实 GC 停顿/回收（-json 输出快照）
 ├── viz.py                           # 数据图脚本：停顿与回收 → images/gc_pause.png
 └── images/
@@ -96,7 +96,7 @@ internals/15_gc/
     └── gc_pause.png                 # 实测数据图：每轮停顿与 HeapObjects 回落
 ```
 
-## 7. 面试要点
+## 7. 深入要点
 
 **Q：三色标记为什么能支持并发？**
 A：标记进度被编码成对象颜色：黑色确认存活、灰色待扫、白色待定。灰色队列耗尽即标记完成。并发带来的唯一风险是"黑→白"引用边，写屏障在堆写入时把白对象染灰即可堵住。

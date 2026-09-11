@@ -95,7 +95,7 @@ Go GC 的根扫描范围是栈、寄存器、全局变量，对象图只沿 Go �
 
 ```text
 internals/21_cgo/
-├── README.md                        # 本文件：原理 + 运行指引 + 面试要点
+├── README.md                        # 本文件：原理 + 运行指引 + 深入要点
 ├── main.go                          # 主教材：leak/free/go 三模式 + 独立子进程隔离采样
 ├── viz.py                           # 数据图：实测三模式 RSS → images/cgo_rss.png
 └── images/
@@ -105,7 +105,7 @@ internals/21_cgo/
     └── cgo_rss.png                  # 数据图：三模式分配后/GC 后 RSS 实测柱状对比
 ```
 
-## 7. 面试要点
+## 7. 深入要点
 
 **Q：Go 进程 RSS 一直涨，pprof heap 却显示正常，为什么？**
 A：RSS 是整个进程的常驻内存（Go 堆 + C 堆 + 栈 + runtime），heap profile 只统计 Go 堆。cgo 库里忘了 free 的 C 内存只有 RSS 能暴露——先看 RSS 与 HeapInuse 的差值是否持续扩大。

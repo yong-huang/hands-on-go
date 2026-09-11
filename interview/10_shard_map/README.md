@@ -117,7 +117,7 @@ func (sm *ShardMap) getShard(key string) *shard {
 
 ```text
 interview/10_shard_map/
-├── README.md                        # 本文件：原理 + 运行指引 + 面试要点
+├── README.md                        # 本文件：原理 + 运行指引 + 深入要点
 ├── shard_map.go                     # 主教材：ShardMap 实现 + 基准 + 路由分布 demo
 ├── viz.py                           # 数据图：实测分片数-吞吐曲线（输出到 images/）
 └── images/
@@ -127,7 +127,7 @@ interview/10_shard_map/
     └── shard_map_scaling.png        # 实测数据图：分片数与吞吐量、三方案对比
 ```
 
-## 7. 面试要点
+## 7. 深入要点
 
 **Q：分片数怎么选？**
 A：经验起点是 `runtime.NumCPU()` 或 32。太少（1~2）接近全局锁；太多（>128）白白占内存、初始化变慢，收益递减。实测（8 goroutine）吞吐随 shard 数单调升但次线性，因为瓶颈还有 hash 计算、内存带宽和调度。常取 2 的幂，把 `% N` 换成 `& (N-1)`。

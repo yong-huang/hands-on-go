@@ -96,7 +96,7 @@ BenchmarkAppendGrow-18       399171  2775 ns/op  4112 B/op  10 allocs/op
 
 ```text
 internals/16_alloc_bench/
-├── README.md                     # 本文件：原理 + 运行指引 + 面试要点
+├── README.md                     # 本文件：原理 + 运行指引 + 深入要点
 ├── main.go                       # 主教材：三组对照 + MemStats 计数（-json 输出快照）
 ├── bench_test.go                 # 官方基准：go test -bench=. -benchmem 复测
 ├── viz.py                        # 数据图：读 -json 快照，生成 images/alloc_bench.png
@@ -107,7 +107,7 @@ internals/16_alloc_bench/
     └── alloc_bench.png           # 数据图：ns/op 与 allocs/op 实测对比（matplotlib）
 ```
 
-## 7. 面试要点
+## 7. 深入要点
 
 **Q：`new(T)` 和 `&T{}` 有性能差别吗？**
 A：没有。编译器生成同一段代码，实测 ns/op、allocs/op、B/op 完全一致。分配优化要看结构（逃逸、扩容、复用），不是写法。

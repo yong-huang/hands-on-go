@@ -103,7 +103,7 @@ python3 viz.py          # 重新生成 images/ 下两张 PNG（实测数据图 +
 
 ```text
 internals/26_iface/
-├── README.md                      # 本文件：原理 + 运行指引 + 面试要点
+├── README.md                      # 本文件：原理 + 运行指引 + 深入要点
 ├── main.go                        # 主教材：七组调用方式对照计时（-json 输出快照）
 ├── viz.py                         # 数据图脚本：实测 ns/op 柱状图 + objdump 汇编对照面板
 └── images/
@@ -114,7 +114,7 @@ internals/26_iface/
     └── iface_asm.png              # 汇编对照面板：devirtualization 前后的调用点
 ```
 
-## 7. 面试要点
+## 7. 深入要点
 
 **Q：接口调用比直接调用慢多少？慢在哪？**
 A：派发本身几乎不慢——实测 itab 路径与 noinline 直接调用比值 ≈1.05x。真实的代价是语义上的：接口调用点对编译器是不透明调用，内联、常量折叠等局部优化被终止。相对可内联的直接调用差 1.5~1.7x，差价主要是优化红利而非寻址。
