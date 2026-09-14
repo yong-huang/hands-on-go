@@ -30,8 +30,10 @@ NN_topic/
 
 ## 新增实验
 
-想给系列加一篇？照 [PROJECT_TEMPLATE.md](PROJECT_TEMPLATE.md) 执行：取号规则、README 八节骨架、
-架构图三件套管线、数据图约定与收尾自检清单都在里面。
+想给系列加一篇？在对应线（internals/interview）末尾按 `NN_短名` 追加目录：
+README 用与现有实验相同的 8 节编号结构，机制图在 `images/` 放图源 JSON + 交互 HTML + SVG 三件套，
+实测数据图用 matplotlib 从 `-json` 快照绘制到 `images/`，最后在本文件实验表加一行。
+配套的学习清单与规划见 [docs/](docs/)（go_internals / go_interview）。
 
 ## 环境要求
 
