@@ -46,6 +46,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"os"
 	"os/exec"
 	"runtime"
 	"unsafe"
@@ -180,10 +181,14 @@ func summary(modes []sample) {
 	pr("4. 红线：Go 指针不能无期限借给 C（checkptr 拦）；C 指针给 Go 随便用\n")
 }
 
-// isoSample：用独立子进程跑单一模式，得到可横向对比的隔离采样
+// isoSample：用独立子进程跑单一模式，得到可横向对比的隔离采样。
+// 重执行自身编译产物（而非 `go run main.go`），这样从任意工作目录按文件路径运行都不受影响。
 func isoSample(mode string) sample {
-	out, err := exec.Command("go", "run", "main.go",
-		"-mode", mode, "-json").Output()
+	exe, err := os.Executable()
+	if err != nil {
+		panic(err)
+	}
+	out, err := exec.Command(exe, "-mode", mode, "-json").Output()
 	if err != nil {
 		panic(err)
 	}
