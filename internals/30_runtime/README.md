@@ -113,4 +113,4 @@ A：偷一半（真实 runtime `runqsteal` 偷一半）且从尾部拿，减少�
 
 运行时三大件的公共主题是"分摊"：调度用多级队列分摊锁，分配用两级缓存分摊锁，GC 用标记分摊"知道谁活着"。工作窃取让负载不均衡自动修复；池内 184 个对象靠 GC 周转撑起 1200 次分配。"模拟运行时"是理解运行时最好的方式——验证方法永远是 `go run main.go` 把真实数字打印出来。
 
-internals 系列到此收官。接下来去 [interview/01_lru_cache](../../interview/01_lru_cache/) 用这些底层知识手写面试高频题：LRU 缓存。
+internals 系列到此收官。接下来去 [patterns/01_lru_cache](../../patterns/01_lru_cache/) 用这些底层知识手写常用组件：LRU 缓存。

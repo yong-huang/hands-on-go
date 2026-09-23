@@ -1,6 +1,6 @@
 # hands-on-go：用 50 个能真实跑通的实验，吃透 Go 底层与并发模式
 
-不背八股，动手看真相。每个实验都是**一个可运行的 Go 程序 + 一份编号章节的 README + 可交互的架构图**：
+不背概念，动手看真相。每个实验都是**一个可运行的 Go 程序 + 一份编号章节的 README + 可交互的架构图**：
 clone 下来 → `go run main.go` → 对照 README 与图，亲眼验证每一个结论。所有实验只用标准库、
 不依赖外部服务，每张图都由图源 JSON（Typed IR）生成并通过质量门禁，README 里的结论都有对应的验证命令。
 
@@ -9,7 +9,7 @@ clone 下来 → `go run main.go` → 对照 README 与图，亲眼验证每一�
 | 目录 | 定位 | 内容 |
 |---|---|---|
 | [`internals/`](internals/) | **语言底层**（30 篇） | slice/map/channel 的内存布局、GMP 调度、分配器与 GC、pprof/trace 工具链 |
-| [`interview/`](interview/) | **面试手写**（20 篇） | LRU/LFU、限流器、Worker Pool、分布式锁、迷你 Redis 等高频手写题的完整实现 |
+| [`patterns/`](patterns/) | **手写组件与并发模式**（20 篇） | LRU/LFU、限流器、Worker Pool、分布式锁、迷你 Redis 等常用组件的完整实现 |
 
 每个实验目录内：
 
@@ -30,10 +30,10 @@ NN_topic/
 
 ## 新增实验
 
-想给系列加一篇？在对应线（internals/interview）末尾按 `NN_短名` 追加目录：
+想给系列加一篇？在对应线（internals/patterns）末尾按 `NN_短名` 追加目录：
 README 用与现有实验相同的 8 节编号结构，机制图在 `images/` 放图源 JSON + 交互 HTML + SVG 三件套，
 实测数据图用 matplotlib 从 `-json` 快照绘制到 `images/`，最后在本文件实验表加一行。
-配套的学习清单与规划见 [docs/](docs/)（go_internals / go_interview）。
+配套的学习清单与规划见 [docs/](docs/)（go_internals / go_patterns）。
 
 ## 环境要求
 
@@ -78,30 +78,30 @@ README 用与现有实验相同的 8 节编号结构，机制图在 `images/` �
 | 29 | [leak](internals/29_leak/) | goroutine/内存泄漏的成因与检测 |
 | 30 | [runtime](internals/30_runtime/) | 手写最小运行时：GMP + 两级分配 + 标记清扫 |
 
-### interview · 面试手写（20 篇）
+### patterns · 手写组件与并发模式（20 篇）
 
 | # | 实验 | 一句话 |
 |---|---|---|
-| 01 | [lru_cache](interview/01_lru_cache/) | 哈希表 + 双向链表的 O(1) LRU |
-| 02 | [lfu_cache](interview/02_lfu_cache/) | 频次桶 + 双向链表的 O(1) LFU |
-| 03 | [read4k](interview/03_read4k/) | 用 4K 缓冲实现多次调用的 ReadN |
-| 04 | [trie](interview/04_trie/) | 前缀树与自动补全 |
-| 05 | [bloom_filter](interview/05_bloom_filter/) | k 个哈希 + 位数组的存在性判断 |
-| 06 | [ring_buffer](interview/06_ring_buffer/) | 固定内存的环形队列与回绕 |
-| 07 | [token_bucket](interview/07_token_bucket/) | 恒速补充、容量上限的令牌桶 |
-| 08 | [worker_pool](interview/08_worker_pool/) | 固定 worker 的任务池与背压 |
-| 09 | [producer_consumer](interview/09_producer_consumer/) | 缓冲 channel 上的生产者消费者 |
-| 10 | [shard_map](interview/10_shard_map/) | 分片降低锁竞争的并发 Map |
-| 11 | [pubsub](interview/11_pubsub/) | topic 扇出的发布订阅 Broker |
-| 12 | [conn_pool](interview/12_conn_pool/) | 连接复用：空闲队列 + 信号量 + 健康检查 |
-| 13 | [consistent_hash](interview/13_consistent_hash/) | 哈希环与虚拟节点 |
-| 14 | [dist_lock](interview/14_dist_lock/) | Redis 锁：TTL 过期与误删防护 |
-| 15 | [http_router](interview/15_http_router/) | 基于方法树参数匹配的迷你路由 |
-| 16 | [graceful_shutdown](interview/16_graceful_shutdown/) | 信号驱动的优雅关闭时间线 |
-| 17 | [mini_redis](interview/17_mini_redis/) | 手写 RESP 协议的 KV 服务器 |
-| 18 | [rate_limiter](interview/18_rate_limiter/) | 滑动窗口限流中间件 |
-| 19 | [task_scheduler](interview/19_task_scheduler/) | 优先队列定时任务调度器 |
-| 20 | [concurrent_lru](interview/20_concurrent_lru/) | 分片并发的 LRU 缓存 |
+| 01 | [lru_cache](patterns/01_lru_cache/) | 哈希表 + 双向链表的 O(1) LRU |
+| 02 | [lfu_cache](patterns/02_lfu_cache/) | 频次桶 + 双向链表的 O(1) LFU |
+| 03 | [read4k](patterns/03_read4k/) | 用 4K 缓冲实现多次调用的 ReadN |
+| 04 | [trie](patterns/04_trie/) | 前缀树与自动补全 |
+| 05 | [bloom_filter](patterns/05_bloom_filter/) | k 个哈希 + 位数组的存在性判断 |
+| 06 | [ring_buffer](patterns/06_ring_buffer/) | 固定内存的环形队列与回绕 |
+| 07 | [token_bucket](patterns/07_token_bucket/) | 恒速补充、容量上限的令牌桶 |
+| 08 | [worker_pool](patterns/08_worker_pool/) | 固定 worker 的任务池与背压 |
+| 09 | [producer_consumer](patterns/09_producer_consumer/) | 缓冲 channel 上的生产者消费者 |
+| 10 | [shard_map](patterns/10_shard_map/) | 分片降低锁竞争的并发 Map |
+| 11 | [pubsub](patterns/11_pubsub/) | topic 扇出的发布订阅 Broker |
+| 12 | [conn_pool](patterns/12_conn_pool/) | 连接复用：空闲队列 + 信号量 + 健康检查 |
+| 13 | [consistent_hash](patterns/13_consistent_hash/) | 哈希环与虚拟节点 |
+| 14 | [dist_lock](patterns/14_dist_lock/) | Redis 锁：TTL 过期与误删防护 |
+| 15 | [http_router](patterns/15_http_router/) | 基于方法树参数匹配的迷你路由 |
+| 16 | [graceful_shutdown](patterns/16_graceful_shutdown/) | 信号驱动的优雅关闭时间线 |
+| 17 | [mini_redis](patterns/17_mini_redis/) | 手写 RESP 协议的 KV 服务器 |
+| 18 | [rate_limiter](patterns/18_rate_limiter/) | 滑动窗口限流中间件 |
+| 19 | [task_scheduler](patterns/19_task_scheduler/) | 优先队列定时任务调度器 |
+| 20 | [concurrent_lru](patterns/20_concurrent_lru/) | 分片并发的 LRU 缓存 |
 
 ## 建议学习路线
 
@@ -109,9 +109,9 @@ README 用与现有实验相同的 8 节编号结构，机制图在 `images/` �
 2. **并发原语**（internals 07→12，再 18→19）：goroutine 栈、锁/原子/WaitGroup/Pool/Once、GMP 与 syscall
 3. **内存与运行时**（internals 13→17、20→21、30）：逃逸、分配器、GC、对齐、信号与 CGO，最后手写迷你运行时自检
 4. **工程化与性能**（internals 22→29）：pprof/trace/inline/defer/reflect/泄漏检测，学会用工具说话
-5. **面试手写**（interview 01→20）：每题限时手写，写完对照 README 的架构图复盘复杂度与并发安全
+5. **手写组件**（patterns 01→20）：每篇亲手实现，写完对照 README 的架构图复盘复杂度与并发安全
 
-建议顺序：internals 1~4 段先行，interview 穿插练手；每个实验都动手 `go run`，别只看图。
+建议顺序：internals 1~4 段先行，patterns 穿插练手；每个实验都动手 `go run`，别只看图。
 
 ## 图三件套与质量门禁
 

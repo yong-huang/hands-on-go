@@ -144,7 +144,7 @@ A：桶下标 = hash & (2^B - 1)，位与替代取模，扩容 B+1 即翻倍。s
 **Q：并发读写 map 会发生什么？为什么 runtime 宁可崩溃也不返回脏数据？**
 A：hmap 里有 flags 位标记"有 goroutine 正在写"，并发读写会直接 `fatal error: concurrent
 map read and map write`（不可 recover）。因为 map 无锁，并发写会破坏溢出链/计数，
-宁可崩溃也不返回脏数据；需要并发就用 `sync.RWMutex` 包一层或分片（见 interview/10）。
+宁可崩溃也不返回脏数据；需要并发就用 `sync.RWMutex` 包一层或分片（见 patterns/10）。
 
 ## 8. 总结
 
