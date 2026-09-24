@@ -1,0 +1,185 @@
+{
+  "schema_version": 1,
+  "diagram_type": "sequence",
+  "meta": {
+    "title": "main 调用 → 多返回值 → defer LIFO → recover 捕获",
+    "output": "images/defer.html",
+    "viewBox": [
+      980,
+      480
+    ],
+    "quality_profile": "showcase",
+    "locale": "zh-CN",
+    "legend": {
+      "mode": "hidden"
+    }
+  },
+  "participants": [
+    {
+      "id": "main",
+      "type": "frontend",
+      "label": "main",
+      "sublabel": "调用方·先判err"
+    },
+    {
+      "id": "divide",
+      "type": "backend",
+      "label": "divide(a, b)",
+      "sublabel": "商,余,error"
+    },
+    {
+      "id": "stack",
+      "type": "messagebus",
+      "label": "defer 栈",
+      "sublabel": "LIFO：后注册先执行"
+    },
+    {
+      "id": "status",
+      "type": "backend",
+      "label": "status()",
+      "sublabel": "命名返回值 ret"
+    },
+    {
+      "id": "checked",
+      "type": "backend",
+      "label": "checked()",
+      "sublabel": "defer + recover"
+    }
+  ],
+  "segments": [
+    {
+      "from": 160,
+      "to": 214,
+      "label": "多返回值 + error"
+    },
+    {
+      "from": 236,
+      "to": 270,
+      "label": "defer LIFO"
+    },
+    {
+      "from": 292,
+      "to": 324,
+      "label": "命名返回值"
+    },
+    {
+      "from": 348,
+      "to": 380,
+      "label": "panic 与 recover"
+    }
+  ],
+  "messages": [
+    {
+      "from": "main",
+      "to": "divide",
+      "y": 168,
+      "label": "divide(17, 5)",
+      "variant": "emphasis"
+    },
+    {
+      "from": "divide",
+      "to": "main",
+      "y": 196,
+      "label": "返回 3, 2, nil；除 0 时返回 0, 0, err",
+      "variant": "return"
+    },
+    {
+      "from": "main",
+      "to": "stack",
+      "y": 224,
+      "label": "注册 defer 1 → 2 → 3",
+      "variant": "emphasis"
+    },
+    {
+      "from": "stack",
+      "to": "main",
+      "y": 252,
+      "label": "出口处 LIFO 执行 3 → 2 → 1",
+      "variant": "return"
+    },
+    {
+      "from": "main",
+      "to": "status",
+      "y": 280,
+      "label": "status(false)：return \"warn\"",
+      "variant": "emphasis"
+    },
+    {
+      "from": "status",
+      "to": "main",
+      "y": 308,
+      "label": "defer 改写命名返回值 ret → \"degraded\"",
+      "variant": "return"
+    },
+    {
+      "from": "main",
+      "to": "checked",
+      "y": 336,
+      "label": "10 ÷ 0 触发 panic",
+      "variant": "emphasis"
+    },
+    {
+      "from": "checked",
+      "to": "stack",
+      "y": 364,
+      "label": "defer 执行 → recover() 捕获",
+      "variant": "dashed"
+    },
+    {
+      "from": "checked",
+      "to": "main",
+      "y": 392,
+      "label": "正常返回 -1，main 继续",
+      "variant": "return"
+    }
+  ],
+  "activations": [
+    {
+      "participant": "divide",
+      "from": 164,
+      "to": 212,
+      "type": "backend"
+    },
+    {
+      "participant": "status",
+      "from": 276,
+      "to": 316,
+      "type": "backend"
+    },
+    {
+      "participant": "checked",
+      "from": 332,
+      "to": 398,
+      "type": "backend"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "多返回值惯用法",
+      "items": [
+        "value, err 捆绑返回",
+        "出错时值恒为零值，先判 err",
+        "调用方在第一行就分流成功与失败"
+      ]
+    },
+    {
+      "dot": "orange",
+      "title": "defer 三条铁律",
+      "items": [
+        "注册时求值参数，执行时才用",
+        "执行顺序 LIFO：3 → 2 → 1",
+        "panic 时 defer 仍然执行，是清理的兜底"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "命名返回值与 recover",
+      "items": [
+        "ret 是具名变量，return 之后 defer 仍可改写",
+        "recover 只在 defer 函数里生效",
+        "捕获后函数正常返回，程序继续运行"
+      ]
+    }
+  ]
+}

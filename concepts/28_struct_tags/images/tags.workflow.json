@@ -1,0 +1,207 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "Struct Tag 解析流水线：从字段声明到校验与序列化",
+    "output": "images/tags.html",
+    "quality_profile": "showcase",
+    "locale": "zh-CN",
+    "legend": {
+      "mode": "hidden"
+    }
+  },
+  "lanes": [
+    {
+      "id": "reflect",
+      "label": "反射读 tag"
+    },
+    {
+      "id": "serde",
+      "label": "序列化支线"
+    },
+    {
+      "id": "check",
+      "label": "校验支线"
+    }
+  ],
+  "phases": [
+    {
+      "id": "declare",
+      "label": "声明期",
+      "fromCol": 0,
+      "toCol": 0
+    },
+    {
+      "id": "read",
+      "label": "运行时读取",
+      "fromCol": 1,
+      "toCol": 2
+    },
+    {
+      "id": "deliver",
+      "label": "产出",
+      "fromCol": 3,
+      "toCol": 4
+    }
+  ],
+  "mainPath": [
+    "n_struct",
+    "n_type",
+    "n_lookup",
+    "n_json",
+    "n_marshal",
+    "n_out"
+  ],
+  "nodes": [
+    {
+      "id": "n_struct",
+      "lane": "reflect",
+      "col": 0,
+      "type": "external",
+      "label": "User struct",
+      "sublabel": "tag 写在反引号里",
+      "width": 130
+    },
+    {
+      "id": "n_type",
+      "lane": "reflect",
+      "col": 1,
+      "type": "backend",
+      "label": "reflect.TypeOf(v)",
+      "sublabel": "NumField + Field(i) 遍历",
+      "width": 150
+    },
+    {
+      "id": "n_lookup",
+      "lane": "reflect",
+      "col": 2,
+      "type": "messagebus",
+      "label": "f.Tag.Lookup(\"json\")",
+      "sublabel": "(值, ok) 区分没写/空串",
+      "tag": "Get 折叠成 \"\"",
+      "width": 160
+    },
+    {
+      "id": "n_json",
+      "lane": "serde",
+      "col": 3,
+      "type": "frontend",
+      "label": "json 键名映射",
+      "sublabel": "缺失退回字段名",
+      "width": 130
+    },
+    {
+      "id": "n_validate",
+      "lane": "check",
+      "col": 3,
+      "type": "frontend",
+      "label": "validate 规则检查",
+      "sublabel": "required / min=0",
+      "width": 130
+    },
+    {
+      "id": "n_marshal",
+      "lane": "serde",
+      "col": 4,
+      "type": "database",
+      "label": "miniMarshal",
+      "sublabel": "按 Kind 格式化拼接",
+      "width": 135
+    },
+    {
+      "id": "n_report",
+      "lane": "check",
+      "col": 4,
+      "type": "database",
+      "label": "校验报告",
+      "sublabel": "FAIL 报告逐条输出",
+      "width": 130
+    },
+    {
+      "id": "n_out",
+      "lane": "serde",
+      "col": 5,
+      "type": "cloud",
+      "label": "{\"name\":\"Ada\",…}",
+      "sublabel": "encoding/json 简化原理",
+      "width": 140
+    }
+  ],
+  "edges": [
+    {
+      "id": "e_s_t",
+      "from": "n_struct",
+      "to": "n_type",
+      "label": "传入实例",
+      "variant": "emphasis"
+    },
+    {
+      "id": "e_t_l",
+      "from": "n_type",
+      "to": "n_lookup",
+      "label": "StructField.Tag",
+      "variant": "emphasis"
+    },
+    {
+      "id": "e_l_j",
+      "from": "n_lookup",
+      "to": "n_json",
+      "label": "json:\"name\"",
+      "variant": "emphasis"
+    },
+    {
+      "id": "e_l_v",
+      "from": "n_lookup",
+      "to": "n_validate",
+      "label": "validate:\"required\""
+    },
+    {
+      "id": "e_j_m",
+      "from": "n_json",
+      "to": "n_marshal",
+      "label": "键名决定输出"
+    },
+    {
+      "id": "e_v_r",
+      "from": "n_validate",
+      "to": "n_report",
+      "label": "规则不过 → FAIL"
+    },
+    {
+      "id": "e_m_o",
+      "from": "n_marshal",
+      "to": "n_out",
+      "label": "字符串拼接",
+      "variant": "emphasis"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "心智模型",
+      "items": [
+        "tag 是反引号里的元数据字符串，编译器不解释，运行时反射读",
+        "一条流水线：读 tag → 键名映射 → 规则检查 → 序列化输出",
+        "Lookup 的 ok 返回值是\"没写\"与\"写了空串\"的唯一区分手段"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "经典陷阱",
+      "items": [
+        "Get 把\"没写 tag\"和\"json:\\\"\\\"\"都返回 \"\"，判存在必须用 Lookup",
+        "键名取 tag 要先按逗号切：json:\"age,omitempty\" 的键是 age",
+        "小写/未导出字段反射读不到有效值，tag 写了也白写"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "如何验证",
+      "items": [
+        "go run main.go 第 1 节对照 A/B/C 三个字段的 Lookup 与 Get",
+        "第 4 节空 Name 与负 Age 各产出一条 FAIL 报告",
+        "miniMarshal 输出 {\"name\":…,\"age\":…,\"email\":…} 与真 JSON 形态一致"
+      ]
+    }
+  ]
+}

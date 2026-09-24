@@ -1,7 +1,7 @@
-# hands-on-go：用 50 个能真实跑通的实验，吃透 Go 底层与并发模式
+# hands-on-go：用 80 个能真实跑通的实验，吃透 Go 底层与并发模式
 
 不背概念，动手看真相。每个实验都是**一个可运行的 Go 程序 + 一份编号章节的 README + 可交互的架构图**：
-clone 下来 → `go run main.go` → 对照 README 与图，亲眼验证每一个结论。所有实验只用标准库、
+clone 下来 → 每个实验 `go run` 即跑 → 对照 README 与图，亲眼验证每一个结论。所有实验只用标准库、
 不依赖外部服务，每张图都由图源 JSON（Typed IR）生成并通过质量门禁，README 里的结论都有对应的验证命令。
 
 ## 两条学习线
@@ -10,6 +10,7 @@ clone 下来 → `go run main.go` → 对照 README 与图，亲眼验证每一�
 |---|---|---|
 | [`internals/`](internals/) | **语言底层**（30 篇） | slice/map/channel 的内存布局、GMP 调度、分配器与 GC、pprof/trace 工具链 |
 | [`patterns/`](patterns/) | **手写组件与并发模式**（20 篇） | LRU/LFU、限流器、Worker Pool、分布式锁、迷你 Redis 等常用组件的完整实现 |
+| [`concepts/`](concepts/) | **语言概念**（30 篇） | 变量与类型、流程控制、goroutine/channel/select、错误处理、context、反射——语言特性逐个击破 |
 
 每个实验目录内：
 
@@ -103,6 +104,41 @@ README 用与现有实验相同的 8 节编号结构，机制图在 `images/` �
 | 19 | [task_scheduler](patterns/19_task_scheduler/) | 优先队列定时任务调度器 |
 | 20 | [concurrent_lru](patterns/20_concurrent_lru/) | 分片并发的 LRU 缓存 |
 
+### concepts · 语言概念（30 篇）
+
+| # | 实验 | 一句话 |
+|---|---|---|
+| 01 | [vars](concepts/01_vars/) | 变量、常量与类型推断 |
+| 02 | [flow](concepts/02_flow/) | 流程控制：if/switch/for 三形态 |
+| 03 | [arrays_maps](concepts/03_arrays_maps/) | 数组、切片与 map：词频统计 |
+| 04 | [funcs_defer](concepts/04_funcs_defer/) | 函数、多返回值与 defer |
+| 05 | [struct_iface](concepts/05_struct_iface/) | 结构体、方法与接口多态 |
+| 06 | [goroutine_basics](concepts/06_goroutine_basics/) | goroutine 启动与 WaitGroup |
+| 07 | [closure_trap](concepts/07_closure_trap/) | 循环变量闭包陷阱与修正 |
+| 08 | [leak_detect](concepts/08_leak_detect/) | goroutine 泄漏场景与检测 |
+| 09 | [runtime_info](concepts/09_runtime_info/) | 栈打印、Goexit 与 goid |
+| 10 | [gomaxprocs](concepts/10_gomaxprocs/) | GOMAXPROCS 并行度实测 |
+| 11 | [worker_pool](concepts/11_worker_pool/) | channel 版任务池 |
+| 12 | [unbuffered_chan](concepts/12_unbuffered_chan/) | 无缓冲 channel 的同步握手 |
+| 13 | [buffered_chan](concepts/13_buffered_chan/) | 有缓冲 channel 的三种状态 |
+| 14 | [directional_chan](concepts/14_directional_chan/) | 单向 channel 的类型约束 |
+| 15 | [select](concepts/15_select/) | 多路复用、超时与非阻塞 |
+| 16 | [chan_close](concepts/16_chan_close/) | 关闭语义与广播退出 |
+| 17 | [chan_semaphore](concepts/17_chan_semaphore/) | channel 信号量限流 |
+| 18 | [producer_consumer](concepts/18_producer_consumer/) | 多生产多消费与关闭顺序 |
+| 19 | [pipeline](concepts/19_pipeline/) | 三级流水线模式 |
+| 20 | [fan_in_out](concepts/20_fan_in_out/) | 扇出与扇入合并 |
+| 21 | [mutex_race](concepts/21_mutex_race/) | 竞态、锁与 atomic 对比 |
+| 22 | [context](concepts/22_context/) | 取消传播与超时控制 |
+| 23 | [error_basics](concepts/23_error_basics/) | error 接口与哨兵错误 |
+| 24 | [error_chain](concepts/24_error_chain/) | 自定义 error 与错误链 |
+| 25 | [panic_recover](concepts/25_panic_recover/) | panic 捕获与恢复 |
+| 26 | [iface_assert](concepts/26_iface_assert/) | 接口组合与类型断言 |
+| 27 | [reflect_basics](concepts/27_reflect_basics/) | reflect.Type 与 Value |
+| 28 | [struct_tags](concepts/28_struct_tags/) | 结构体标签解析与校验 |
+| 29 | [reflect_call](concepts/29_reflect_call/) | 反射创建实例与动态调用 |
+| 30 | [custom_marshal](concepts/30_custom_marshal/) | 自定义 JSON 序列化 |
+
 ## 建议学习路线
 
 1. **数据结构底层**（internals 01→06）：slice/map/channel/string/interface 的内存真相，后续一切的地基
@@ -110,8 +146,9 @@ README 用与现有实验相同的 8 节编号结构，机制图在 `images/` �
 3. **内存与运行时**（internals 13→17、20→21、30）：逃逸、分配器、GC、对齐、信号与 CGO，最后手写迷你运行时自检
 4. **工程化与性能**（internals 22→29）：pprof/trace/inline/defer/reflect/泄漏检测，学会用工具说话
 5. **手写组件**（patterns 01→20）：每篇亲手实现，写完对照 README 的架构图复盘复杂度与并发安全
+6. **语言概念**（concepts 01→30）：按 6 个阶段顺序过一遍——基础语法、goroutine、channel、并发模式、错误处理、反射；与 internals 的同名主题（如 mutex、defer、reflect）互为"用法 ↔ 原理"对照
 
-建议顺序：internals 1~4 段先行，patterns 穿插练手；每个实验都动手 `go run`，别只看图。
+建议顺序：concepts 打底，internals 1~4 段与 patterns 穿插对照；每个实验都动手 `go run`，别只看图。
 
 ## 图三件套与质量门禁
 

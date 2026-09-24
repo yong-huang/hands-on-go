@@ -1,0 +1,146 @@
+{
+  "schema_version": 1,
+  "diagram_type": "dataflow",
+  "meta": {
+    "title": "三级流水线：generate → square → sum 的 channel 数据流",
+    "locale": "zh-CN",
+    "quality_profile": "showcase",
+    "legend": {
+      "mode": "hidden"
+    },
+    "viewBox": [
+      1068,
+      560
+    ]
+  },
+  "stages": [
+    {
+      "label": "数据形态：int 1..10"
+    },
+    {
+      "label": "数据形态：chan int"
+    },
+    {
+      "label": "数据形态：平方值流"
+    },
+    {
+      "label": "数据形态：chan int"
+    },
+    {
+      "label": "数据形态：单一结果"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "gen",
+      "type": "backend",
+      "label": "stage1 generate",
+      "sublabel": "产 1..10 后 close",
+      "tag": "返回 <-chan int",
+      "stage": 0,
+      "row": 1,
+      "width": 132
+    },
+    {
+      "id": "ch1",
+      "type": "database",
+      "label": "源通道 chan int",
+      "sublabel": "元素流 1,2..10",
+      "tag": "无缓冲：逐个接力",
+      "stage": 1,
+      "row": 1,
+      "width": 132
+    },
+    {
+      "id": "sq",
+      "type": "frontend",
+      "label": "stage2 square",
+      "sublabel": "逐个 v*v",
+      "tag": "只做一件事",
+      "stage": 2,
+      "row": 1,
+      "width": 132
+    },
+    {
+      "id": "ch2",
+      "type": "database",
+      "label": "平方通道 chan int",
+      "sublabel": "元素流 1,4..100",
+      "tag": "close 沿此传播",
+      "stage": 3,
+      "row": 1,
+      "width": 132
+    },
+    {
+      "id": "sum",
+      "type": "security",
+      "label": "stage3 sum",
+      "sublabel": "折叠为 385",
+      "tag": "元素流 → 单结果",
+      "stage": 4,
+      "row": 1,
+      "width": 132
+    }
+  ],
+  "flows": [
+    {
+      "id": "raw",
+      "from": "gen",
+      "to": "ch1",
+      "label": "发送 1..10",
+      "classification": "生成",
+      "variant": "emphasis"
+    },
+    {
+      "id": "consume1",
+      "from": "ch1",
+      "to": "sq",
+      "label": "逐个接收",
+      "classification": "转换"
+    },
+    {
+      "id": "sqout",
+      "from": "sq",
+      "to": "ch2",
+      "label": "发送平方值",
+      "classification": "产出",
+      "variant": "emphasis"
+    },
+    {
+      "id": "consume2",
+      "from": "ch2",
+      "to": "sum",
+      "label": "逐个累加",
+      "classification": "聚合"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "emerald",
+      "title": "每个 stage 只负责一件事",
+      "items": [
+        "generate 只产数，square 只平方，sum 只累加",
+        "stage 函数返回 <-chan int：单向通道把读写边界写进类型",
+        "stage 内部用 goroutine 跑，三条 stage 天然并发"
+      ]
+    },
+    {
+      "dot": "orange",
+      "title": "close 沿流水线传播",
+      "items": [
+        "generate 产完 10 就 close 源通道",
+        "square 的 for range 因 close 排空而退出，随后 close 平方通道",
+        "sum 收齐后先发结果再 close——顺序反了接收方会拿到零值"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "流水线是推背式的",
+      "items": [
+        "无缓冲通道让上游发送阻塞到下游接收，数据逐个接力",
+        "整条流水线的终点是 main 的 <-results，天然同步点",
+        "不需要 WaitGroup 或计数：关闭链就是结束信号"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,140 @@
+{
+  "schema_version": 1,
+  "diagram_type": "sequence",
+  "meta": {
+    "title": "main → 10 个 goroutine 启动 → Add/Done/Wait 时序",
+    "output": "images/wait.html",
+    "viewBox": [
+      1000,
+      500
+    ],
+    "quality_profile": "showcase",
+    "locale": "zh-CN",
+    "legend": {
+      "mode": "hidden"
+    }
+  },
+  "participants": [
+    {
+      "id": "main",
+      "type": "frontend",
+      "label": "main",
+      "sublabel": "调用方·负责等待"
+    },
+    {
+      "id": "wg",
+      "type": "messagebus",
+      "label": "WaitGroup",
+      "sublabel": "计数器 Add/Done"
+    },
+    {
+      "id": "workers",
+      "type": "backend",
+      "label": "worker × 10",
+      "sublabel": "并发执行·顺序不定"
+    }
+  ],
+  "segments": [
+    {
+      "from": 150,
+      "to": 200,
+      "label": "启动前先计数"
+    },
+    {
+      "from": 222,
+      "to": 272,
+      "label": "并发启动"
+    },
+    {
+      "from": 294,
+      "to": 352,
+      "label": "main 阻塞等待"
+    },
+    {
+      "from": 374,
+      "to": 424,
+      "label": "计数归零·放行"
+    }
+  ],
+  "messages": [
+    {
+      "from": "main",
+      "to": "wg",
+      "y": 162,
+      "label": "wg.Add(10)：先 Add 后 go（或循环内逐个 Add(1)）",
+      "variant": "emphasis"
+    },
+    {
+      "from": "main",
+      "to": "workers",
+      "y": 194,
+      "label": "for i := 1..10: go worker(i, &wg)——编号经参数拷贝",
+      "variant": "emphasis"
+    },
+    {
+      "from": "main",
+      "to": "wg",
+      "y": 262,
+      "label": "wg.Wait()：阻塞，直到计数器归零",
+      "variant": "emphasis"
+    },
+    {
+      "from": "workers",
+      "to": "wg",
+      "y": 300,
+      "label": "defer wg.Done()：每个完成减 1（完成顺序每次运行不同）",
+      "variant": "dashed"
+    },
+    {
+      "from": "workers",
+      "to": "wg",
+      "y": 330,
+      "label": "10 个 Done 全部到账，计数 10 → 0",
+      "variant": "dashed"
+    },
+    {
+      "from": "wg",
+      "to": "main",
+      "y": 364,
+      "label": "Wait 返回，main 继续执行收尾",
+      "variant": "return"
+    }
+  ],
+  "activations": [
+    {
+      "participant": "workers",
+      "from": 196,
+      "to": 340,
+      "type": "backend"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Add/Done/Wait 配对",
+      "items": [
+        "Add 在 go 语句之前执行",
+        "Done 用 defer 保证必达",
+        "计数为负会 panic"
+      ]
+    },
+    {
+      "dot": "orange",
+      "title": "没有 Wait 会怎样",
+      "items": [
+        "go 只是启动，不等结果",
+        "main 退出 = 全体 goroutine 消失",
+        "输出可能一行都来不及打印"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "顺序不确定性",
+      "items": [
+        "调度顺序没有保证",
+        "完成顺序每次运行可能不同",
+        "依赖打印顺序 = 依赖运气"
+      ]
+    }
+  ]
+}

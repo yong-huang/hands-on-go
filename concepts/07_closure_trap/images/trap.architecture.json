@@ -1,0 +1,209 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "Goroutine 闭包陷阱：一个共享变量 vs 三种修正",
+    "output": "images/trap.html",
+    "quality_profile": "showcase",
+    "locale": "zh-CN",
+    "legend": {
+      "mode": "hidden"
+    }
+  },
+  "components": [
+    {
+      "id": "n_loop",
+      "type": "frontend",
+      "label": "for 循环",
+      "sublabel": "loopVar = v · 每轮重写同一个变量",
+      "tag": "显式共享",
+      "pos": [
+        30,
+        60
+      ],
+      "size": [
+        250,
+        66
+      ]
+    },
+    {
+      "id": "n_goroutines",
+      "type": "backend",
+      "label": "5 个 goroutine",
+      "sublabel": "go func(){ use(loopVar) }",
+      "tag": "闭包捕获引用",
+      "pos": [
+        310,
+        60
+      ],
+      "size": [
+        230,
+        66
+      ]
+    },
+    {
+      "id": "n_bad",
+      "type": "security",
+      "label": "输出全相同：值 5 出现 5 次",
+      "sublabel": "循环结束后 loopVar == 5",
+      "tag": "陷阱复现",
+      "pos": [
+        620,
+        60
+      ],
+      "size": [
+        220,
+        66
+      ]
+    },
+    {
+      "id": "n_fix3",
+      "type": "backend",
+      "label": "修正 3 · shadow",
+      "sublabel": "v := v · 函数体内遮蔽外层",
+      "tag": "经典写法",
+      "pos": [
+        30,
+        215
+      ],
+      "size": [
+        250,
+        66
+      ]
+    },
+    {
+      "id": "n_fix1",
+      "type": "backend",
+      "label": "修正 1 · 参数传递",
+      "sublabel": "go func(n int){…}(v) · 按值拷贝",
+      "tag": "最推荐",
+      "pos": [
+        310,
+        215
+      ],
+      "size": [
+        230,
+        66
+      ]
+    },
+    {
+      "id": "n_fix2",
+      "type": "backend",
+      "label": "修正 2 · 循环内重赋值",
+      "sublabel": "shared := v · 每轮新变量新地址",
+      "tag": "1.22 前常用",
+      "pos": [
+        620,
+        215
+      ],
+      "size": [
+        220,
+        66
+      ]
+    },
+    {
+      "id": "n_good",
+      "type": "database",
+      "label": "各 goroutine 拿到独立值",
+      "sublabel": "输出 1 2 3 4 5 各一次",
+      "tag": "三种修正殊途同归",
+      "pos": [
+        620,
+        370
+      ],
+      "size": [
+        240,
+        66
+      ]
+    },
+    {
+      "id": "n_ver",
+      "type": "messagebus",
+      "label": "go.mod 声明 go >= 1.22",
+      "sublabel": "原生循环变量每轮都是新变量，原生写法已安全",
+      "tag": "版本语义",
+      "pos": [
+        310,
+        370
+      ],
+      "size": [
+        260,
+        66
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "from": "n_loop",
+      "to": "n_goroutines",
+      "variant": "emphasis",
+      "label": "闭包捕获 &loopVar",
+      "labelDy": -22
+    },
+    {
+      "from": "n_goroutines",
+      "to": "n_bad",
+      "variant": "emphasis",
+      "label": "都读到最终值"
+    },
+    {
+      "from": "n_goroutines",
+      "to": "n_fix3"
+    },
+    {
+      "from": "n_goroutines",
+      "to": "n_fix1"
+    },
+    {
+      "from": "n_goroutines",
+      "to": "n_fix2"
+    },
+    {
+      "from": "n_fix3",
+      "to": "n_good",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "from": "n_fix1",
+      "to": "n_good",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "from": "n_fix2",
+      "to": "n_good",
+      "fromSide": "bottom",
+      "toSide": "top"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "rose",
+      "title": "为什么会踩坑",
+      "items": [
+        "闭包捕获的是变量的引用，不是那一刻的值",
+        "循环结束后共享变量已变成最后一个值",
+        "goroutine 真正开始跑时才去读这个变量"
+      ]
+    },
+    {
+      "dot": "cyan",
+      "title": "三种修正的共同点",
+      "items": [
+        "参数传递：go 语句执行时按值拷贝进函数",
+        "循环内重赋值 / shadow：每轮创建新的存储位置",
+        "本质：让每个闭包捕获一个独立的变量"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "版本语义",
+      "items": [
+        "go.mod 声明 go >= 1.22：原生 for 循环变量每轮都是新变量",
+        "原生 range 写法已安全，但显式共享变量的道理不变",
+        "本 demo 用 loopVar 显式共享复现旧世界的行为"
+      ]
+    }
+  ]
+}

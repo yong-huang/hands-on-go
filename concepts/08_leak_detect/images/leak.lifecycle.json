@@ -1,0 +1,192 @@
+{
+  "schema_version": 1,
+  "diagram_type": "lifecycle",
+  "meta": {
+    "title": "Goroutine 生命周期：正常退出 vs 三种泄漏态",
+    "output": "images/leak.html",
+    "quality_profile": "showcase",
+    "locale": "zh-CN",
+    "viewBox": [
+      1040,
+      566
+    ]
+  },
+  "lanes": [
+    {
+      "id": "main",
+      "label": "正常退出主轴"
+    },
+    {
+      "id": "leak",
+      "label": "三种泄漏态"
+    }
+  ],
+  "states": [
+    {
+      "id": "spawn",
+      "type": "start",
+      "label": "go 启动 goroutine",
+      "sublabel": "NumGoroutine 记基线",
+      "lane": "main",
+      "col": 0,
+      "step": "01",
+      "tag": "runtime.NumGoroutine()"
+    },
+    {
+      "id": "run",
+      "type": "active",
+      "label": "运行任务",
+      "sublabel": "channel 收发 · 循环计算",
+      "lane": "main",
+      "col": 1,
+      "step": "02",
+      "tag": "G-running"
+    },
+    {
+      "id": "exit",
+      "type": "success",
+      "label": "函数返回 → 正常退出",
+      "sublabel": "数量回落到基线",
+      "lane": "main",
+      "col": 2,
+      "step": "03",
+      "tag": "Gdead 回收"
+    },
+    {
+      "id": "observe",
+      "type": "neutral",
+      "label": "等 100ms 再观测",
+      "sublabel": "+N 不回落即泄漏",
+      "lane": "main",
+      "col": 3,
+      "step": "04",
+      "tag": "观测窗口"
+    },
+    {
+      "id": "fix",
+      "type": "active",
+      "label": "修复对照",
+      "sublabel": "缓冲 / close / ctx 取消",
+      "lane": "main",
+      "col": 4,
+      "step": "05",
+      "tag": "数量回落"
+    },
+    {
+      "id": "sendblk",
+      "type": "waiting",
+      "label": "发送阻塞 ch<-v",
+      "sublabel": "无人接收且无缓冲",
+      "lane": "leak",
+      "col": 0,
+      "tag": "Gwaiting"
+    },
+    {
+      "id": "recvblk",
+      "type": "waiting",
+      "label": "接收阻塞 <-ch",
+      "sublabel": "无人发送也无人 close",
+      "lane": "leak",
+      "col": 1,
+      "tag": "Gwaiting"
+    },
+    {
+      "id": "spin",
+      "type": "failure",
+      "label": "for{} 死循环",
+      "sublabel": "缺退出条件永不返回",
+      "lane": "leak",
+      "col": 2,
+      "tag": "G-running"
+    }
+  ],
+  "transitions": [
+    {
+      "id": "t1",
+      "from": "spawn",
+      "to": "run"
+    },
+    {
+      "id": "t2",
+      "from": "run",
+      "to": "exit",
+      "variant": "emphasis",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "t3",
+      "from": "exit",
+      "to": "observe"
+    },
+    {
+      "id": "t4",
+      "from": "observe",
+      "to": "fix",
+      "label": "补退出路径",
+      "labelDy": 58
+    },
+    {
+      "id": "t5",
+      "from": "run",
+      "to": "sendblk",
+      "variant": "dashed",
+      "label": "对端缺席",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "t6",
+      "from": "run",
+      "to": "recvblk",
+      "variant": "dashed",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "t7",
+      "from": "run",
+      "to": "spin",
+      "variant": "dashed",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "t8",
+      "from": "spin",
+      "to": "fix",
+      "variant": "dashed",
+      "route": "bottom-channel",
+      "label": "ctx.Done 退出"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "rose",
+      "title": "三种泄漏态（main.go 第 1~3 节）",
+      "items": [
+        "发送阻塞：ch <- 1 进无缓冲 channel，无接收方 → 永久 Gwaiting",
+        "接收阻塞：<-make(chan int) 无发送方 → 永久 Gwaiting",
+        "死循环：for {} 无退出条件 → 一直占 G-running，永不返回"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "修复对照（每段紧跟泄漏版）",
+      "items": [
+        "发送方：make(chan int, 1) 加缓冲，发送即完成",
+        "接收方：由发送方 close(ch)，接收读到零值后退出",
+        "死循环：select 监听 ctx.Done()，cancel 后主动 return"
+      ]
+    },
+    {
+      "dot": "cyan",
+      "title": "如何观测",
+      "items": [
+        "runtime.NumGoroutine() 全局计数，泄漏后 +N 不回落",
+        "数值随平台与调度有毫秒级波动，增量才是关键信号",
+        "定位具体阻塞栈用 pprof goroutine profile / runtime.Stack"
+      ]
+    }
+  ]
+}

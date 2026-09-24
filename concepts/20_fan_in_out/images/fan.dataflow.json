@@ -1,0 +1,207 @@
+{
+  "schema_version": 1,
+  "diagram_type": "dataflow",
+  "meta": {
+    "title": "扇出扇入：一个源 channel 分发 3 个 worker，结果合流回一个 channel",
+    "locale": "zh-CN",
+    "quality_profile": "showcase",
+    "legend": {
+      "mode": "hidden"
+    },
+    "viewBox": [
+      1068,
+      620
+    ]
+  },
+  "stages": [
+    {
+      "label": "数据形态：int 1..9"
+    },
+    {
+      "label": "数据形态：chan int（共享消费）"
+    },
+    {
+      "label": "数据形态：3 路平方值流"
+    },
+    {
+      "label": "数据形态：chan int（合流）"
+    },
+    {
+      "label": "数据形态：总和 285"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "source",
+      "type": "backend",
+      "label": "source 生产者",
+      "sublabel": "产 1..9 后 close",
+      "tag": "close 即完成信号",
+      "stage": 0,
+      "row": 1,
+      "width": 136
+    },
+    {
+      "id": "srcchan",
+      "type": "database",
+      "label": "源通道 chan int",
+      "sublabel": "一条消息只被一个 worker 收到",
+      "tag": "fan-out 分发点",
+      "stage": 1,
+      "row": 1,
+      "width": 150
+    },
+    {
+      "id": "w1",
+      "type": "frontend",
+      "label": "worker 1",
+      "sublabel": "v -> v*v",
+      "tag": "goroutine",
+      "stage": 2,
+      "row": 0,
+      "width": 120
+    },
+    {
+      "id": "w2",
+      "type": "frontend",
+      "label": "worker 2",
+      "sublabel": "v -> v*v",
+      "tag": "goroutine",
+      "stage": 2,
+      "row": 1,
+      "width": 120
+    },
+    {
+      "id": "w3",
+      "type": "frontend",
+      "label": "worker 3",
+      "sublabel": "v -> v*v",
+      "tag": "goroutine",
+      "stage": 2,
+      "row": 2,
+      "width": 120
+    },
+    {
+      "id": "merge",
+      "type": "security",
+      "label": "merge 合流",
+      "sublabel": "sync.WaitGroup 等 3 路 close",
+      "tag": "wg.Wait 后 close(merged)",
+      "stage": 3,
+      "row": 1,
+      "width": 150
+    },
+    {
+      "id": "out",
+      "type": "database",
+      "label": "合并通道 chan int",
+      "sublabel": "for range 逐个接收",
+      "tag": "唯一消费入口",
+      "stage": 4,
+      "row": 1,
+      "width": 140
+    }
+  ],
+  "flows": [
+    {
+      "id": "f1",
+      "from": "source",
+      "to": "srcchan",
+      "label": "发送 1..9",
+      "classification": "生成",
+      "variant": "emphasis"
+    },
+    {
+      "id": "d1",
+      "from": "srcchan",
+      "to": "w1",
+      "label": "部分元素",
+      "classification": "分发",
+      "labelDy": -22
+    },
+    {
+      "id": "d2",
+      "from": "srcchan",
+      "to": "w2",
+      "classification": "分发",
+      "label": "部分元素",
+      "labelAt": [
+        355,
+        318
+      ]
+    },
+    {
+      "id": "d3",
+      "from": "srcchan",
+      "to": "w3",
+      "label": "部分元素",
+      "classification": "分发",
+      "labelDy": 22
+    },
+    {
+      "id": "m1",
+      "from": "w1",
+      "to": "merge",
+      "label": "平方值",
+      "classification": "产出",
+      "labelDy": -22
+    },
+    {
+      "id": "m2",
+      "from": "w2",
+      "to": "merge",
+      "classification": "产出",
+      "label": "平方值",
+      "labelAt": [
+        595,
+        318
+      ]
+    },
+    {
+      "id": "m3",
+      "from": "w3",
+      "to": "merge",
+      "label": "平方值",
+      "classification": "产出",
+      "labelDy": 22
+    },
+    {
+      "id": "f2",
+      "from": "merge",
+      "to": "out",
+      "label": "合流输出",
+      "classification": "聚合",
+      "variant": "emphasis",
+      "labelDy": 53
+    }
+  ],
+  "cards": [
+    {
+      "dot": "emerald",
+      "title": "fan-out：天然的去重语义",
+      "items": [
+        "3 个 worker 共享消费同一个源 channel",
+        "一条消息只会被一个 worker 的 <-in 接走，不会重复处理",
+        "各 worker 用 for range 消费，close 后自然退出"
+      ]
+    },
+    {
+      "dot": "orange",
+      "title": "fan-in：WaitGroup 守住关闭时机",
+      "items": [
+        "merge 为每个输入 channel 配一个转发 goroutine，转发完即 wg.Done",
+        "wg.Wait() 返回说明 3 路都已排空，此时才 close(merged)",
+        "谁生产谁 close：merged 的唯一生产者是 merge，关闭权归它"
+      ]
+    },
+    {
+      "dot": "cyan",
+      "title": "可验证的结果",
+      "items": [
+        "9 个元素一条不漏地被处理（count = 9）",
+        "平方和恒为 285：与 worker 分到哪些元素无关",
+        "worker 完成顺序每次运行不同——这正是并发的表现"
+      ]
+    }
+  ]
+}

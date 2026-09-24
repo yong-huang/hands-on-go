@@ -1,0 +1,215 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "竞态与锁：无锁竞争互相覆盖 vs 加锁串行化",
+    "output": "images/lock.html",
+    "quality_profile": "showcase",
+    "locale": "zh-CN",
+    "legend": {
+      "mode": "hidden"
+    }
+  },
+  "components": [
+    {
+      "id": "u_g1",
+      "type": "frontend",
+      "label": "goroutine ①",
+      "sublabel": "counter++ 无锁",
+      "tag": "读→改→写",
+      "pos": [
+        60,
+        60
+      ],
+      "size": [
+        180,
+        66
+      ]
+    },
+    {
+      "id": "u_g2",
+      "type": "frontend",
+      "label": "goroutine ②",
+      "sublabel": "counter++ 无锁",
+      "tag": "读→改→写",
+      "pos": [
+        330,
+        60
+      ],
+      "size": [
+        180,
+        66
+      ]
+    },
+    {
+      "id": "u_g3",
+      "type": "frontend",
+      "label": "goroutine ③",
+      "sublabel": "counter++ 无锁",
+      "tag": "读→改→写",
+      "pos": [
+        600,
+        60
+      ],
+      "size": [
+        180,
+        66
+      ]
+    },
+    {
+      "id": "u_race",
+      "type": "messagebus",
+      "label": "并发交错执行",
+      "sublabel": "写回互相覆盖 · ++ 不是原子",
+      "pos": [
+        330,
+        230
+      ],
+      "size": [
+        190,
+        66
+      ]
+    },
+    {
+      "id": "u_lost",
+      "type": "security",
+      "label": "计数器 = 96",
+      "sublabel": "丢失 4 次更新 · 每次运行不同",
+      "tag": "DATA RACE",
+      "pos": [
+        640,
+        230
+      ],
+      "size": [
+        200,
+        66
+      ]
+    },
+    {
+      "id": "m_g",
+      "type": "frontend",
+      "label": "100 个 goroutine",
+      "sublabel": "都想进入临界区加 1",
+      "pos": [
+        60,
+        420
+      ],
+      "size": [
+        200,
+        66
+      ]
+    },
+    {
+      "id": "m_lock",
+      "type": "messagebus",
+      "label": "sync.Mutex 互斥锁",
+      "sublabel": "Lock() → 临界区 → Unlock()",
+      "tag": "一次只放一个",
+      "pos": [
+        360,
+        420
+      ],
+      "size": [
+        210,
+        66
+      ]
+    },
+    {
+      "id": "m_ok",
+      "type": "database",
+      "label": "计数器 = 100",
+      "sublabel": "临界区串行化，零丢失",
+      "tag": "精确",
+      "pos": [
+        660,
+        420
+      ],
+      "size": [
+        190,
+        66
+      ]
+    },
+    {
+      "id": "m_atomic",
+      "type": "backend",
+      "label": "atomic.AddInt64",
+      "sublabel": "单条硬件原子指令",
+      "tag": "无锁也精确 · 更轻",
+      "pos": [
+        950,
+        420
+      ],
+      "size": [
+        210,
+        66
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "from": "u_g1",
+      "to": "u_race",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "from": "u_g2",
+      "to": "u_race",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "from": "u_g3",
+      "to": "u_race",
+      "fromSide": "bottom",
+      "toSide": "left"
+    },
+    {
+      "from": "u_race",
+      "to": "u_lost"
+    },
+    {
+      "from": "m_g",
+      "to": "m_lock",
+      "variant": "emphasis"
+    },
+    {
+      "from": "m_lock",
+      "to": "m_ok",
+      "variant": "emphasis"
+    },
+    {
+      "from": "m_ok",
+      "to": "m_atomic"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "心智模型",
+      "items": [
+        "counter++ 编译后是 读→加1→写回 三条指令，不是原子操作",
+        "锁把临界区串行化：正确，但排队有开销",
+        "atomic 用一条 CPU 指令完成读改写：正确且更轻"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "竞态的典型症状",
+      "items": [
+        "无锁结果 < 100 且每次运行都不同——丢失更新",
+        "go run -race 报 WARNING: DATA RACE，指出冲突的两处访问",
+        "本地测试经常'碰巧通过'，上生产高并发才爆"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "如何修复",
+      "items": [
+        "互斥访问：sync.Mutex 包住所有读写共享变量的代码",
+        "原子操作：atomic.AddInt64 / atomic.Int64（Go 1.19+）",
+        "更根本的：让变量只被一个 goroutine 拥有，用 channel 传数据"
+      ]
+    }
+  ]
+}

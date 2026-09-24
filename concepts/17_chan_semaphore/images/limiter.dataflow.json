@@ -1,0 +1,122 @@
+{
+  "schema_version": 1,
+  "diagram_type": "dataflow",
+  "meta": {
+    "title": "Channel 信号量限流：令牌源 → 桶 → 请求 → 执行",
+    "locale": "zh-CN",
+    "quality_profile": "showcase",
+    "legend": {
+      "mode": "hidden"
+    },
+    "viewBox": [
+      960,
+      560
+    ]
+  },
+  "stages": [
+    {
+      "label": "令牌源"
+    },
+    {
+      "label": "令牌桶"
+    },
+    {
+      "label": "请求取令牌"
+    },
+    {
+      "label": "业务执行"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "ticker",
+      "type": "backend",
+      "label": "time.Ticker",
+      "sublabel": "每 200ms 滴答一次",
+      "tag": "独立 goroutine",
+      "stage": 0,
+      "row": 1
+    },
+    {
+      "id": "bucket",
+      "type": "database",
+      "label": "令牌桶 chan",
+      "sublabel": "buffered 容量 5",
+      "tag": "突发上限",
+      "stage": 1,
+      "row": 1
+    },
+    {
+      "id": "req",
+      "type": "frontend",
+      "label": "15 个请求",
+      "sublabel": "<-tokens 阻塞等待",
+      "tag": "无令牌就排队",
+      "stage": 2,
+      "row": 1
+    },
+    {
+      "id": "work",
+      "type": "frontend",
+      "label": "业务执行",
+      "sublabel": "约 200ms 放行 1 个",
+      "tag": "恒速 5/秒",
+      "stage": 3,
+      "row": 1
+    }
+  ],
+  "flows": [
+    {
+      "id": "refill",
+      "from": "ticker",
+      "to": "bucket",
+      "label": "放入令牌",
+      "classification": "恒速补充",
+      "variant": "emphasis"
+    },
+    {
+      "id": "take",
+      "from": "bucket",
+      "to": "req",
+      "label": "取走令牌",
+      "classification": "消费",
+      "variant": "emphasis"
+    },
+    {
+      "id": "run",
+      "from": "req",
+      "to": "work",
+      "label": "持令牌执行",
+      "classification": "放行"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "emerald",
+      "title": "一行代码就是限流器",
+      "items": [
+        "make(chan struct{}, 5)：有缓冲 channel 当计数信号量",
+        "<-tokens：取不到令牌就阻塞，这就是全部限流逻辑",
+        "桶初始装满 5 个，所以开头有一波突发放行"
+      ]
+    },
+    {
+      "dot": "orange",
+      "title": "恒速补充靠 Ticker",
+      "items": [
+        "后台 goroutine 每 200ms 尝试放入 1 个令牌",
+        "桶满时用 default 分支丢弃，不会阻塞补令牌协程",
+        "突发吃光余量后，放行节奏被锁死在约 200ms 一个"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "收尾顺序有讲究",
+      "items": [
+        "先 ticker.Stop() 再通知补充协程退出",
+        "确认协程退出后才 close(tokens)，避免向已关闭通道发送",
+        "sync.WaitGroup 等全部请求执行完，主协程最后收口"
+      ]
+    }
+  ]
+}

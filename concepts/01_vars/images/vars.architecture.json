@@ -1,0 +1,140 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "变量声明与类型推断：三条路，一个裁判",
+    "output": "images/vars.html",
+    "quality_profile": "showcase",
+    "locale": "zh-CN",
+    "legend": {
+      "mode": "hidden"
+    }
+  },
+  "components": [
+    {
+      "id": "n_var",
+      "type": "frontend",
+      "label": "var 显式声明",
+      "sublabel": "var a int = 10 · 零值兜底",
+      "tag": "包级可用",
+      "pos": [
+        70,
+        120
+      ],
+      "size": [
+        200,
+        66
+      ]
+    },
+    {
+      "id": "n_short",
+      "type": "backend",
+      "label": ":= 短声明",
+      "sublabel": "d := true · 仅函数内",
+      "tag": "最常用",
+      "pos": [
+        400,
+        120
+      ],
+      "size": [
+        200,
+        66
+      ]
+    },
+    {
+      "id": "n_const",
+      "type": "messagebus",
+      "label": "const 常量",
+      "sublabel": "const pi = 3.14159 · iota",
+      "tag": "不可修改",
+      "pos": [
+        730,
+        120
+      ],
+      "size": [
+        200,
+        66
+      ]
+    },
+    {
+      "id": "n_check",
+      "type": "security",
+      "label": "编译器类型检查",
+      "sublabel": "静态类型：写不用写，查逃不掉",
+      "pos": [
+        390,
+        330
+      ],
+      "size": [
+        220,
+        66
+      ]
+    },
+    {
+      "id": "n_infer",
+      "type": "database",
+      "label": "字面量默认类型",
+      "sublabel": "整数→int · 小数→float64 · 'A'→rune",
+      "tag": "无类型常量延迟定型",
+      "pos": [
+        700,
+        330
+      ],
+      "size": [
+        230,
+        66
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "from": "n_var",
+      "to": "n_check"
+    },
+    {
+      "from": "n_short",
+      "to": "n_check",
+      "variant": "emphasis",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "from": "n_const",
+      "to": "n_check"
+    },
+    {
+      "from": "n_check",
+      "to": "n_infer",
+      "variant": "emphasis"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "心智模型",
+      "items": [
+        "写类型是可选的，有类型是必须的",
+        ":= 是 var 的语法糖，但只能活在函数内",
+        "未初始化的变量有零值：0 / \"\" / false / nil"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "经典陷阱",
+      "items": [
+        "k := 100 定型为 int，再赋给 float64 编译错",
+        "'A' 是 rune(int32) 不是 string，A 不是字符串",
+        "无类型常量 100 能赋给 float64，变量 100 不能"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "如何验证",
+      "items": [
+        "go run main.go 看 %T 式断言逐项输出 true",
+        "注释里两行编译错代码，取消注释即复现",
+        "const 块 iota 验证：Sunday=0、GB=1048576"
+      ]
+    }
+  ]
+}

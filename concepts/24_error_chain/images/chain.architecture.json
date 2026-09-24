@@ -1,0 +1,219 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "三层错误链：底层 *DBErr → 中层 service: %w → 顶层 api: %w，Unwrap/As 溯源",
+    "output": "images/chain.html",
+    "quality_profile": "showcase",
+    "locale": "zh-CN",
+    "legend": {
+      "mode": "hidden"
+    }
+  },
+  "components": [
+    {
+      "id": "n_top",
+      "type": "frontend",
+      "label": "顶层 · handler",
+      "sublabel": "fmt.Errorf(\"api: %w\", err)",
+      "tag": "再加一层上下文",
+      "pos": [
+        90,
+        145
+      ],
+      "size": [
+        230,
+        66
+      ]
+    },
+    {
+      "id": "n_mid",
+      "type": "backend",
+      "label": "中层 · service",
+      "sublabel": "fmt.Errorf(\"service: %w\", err)",
+      "tag": "上下文 + 保链",
+      "pos": [
+        90,
+        280
+      ],
+      "size": [
+        230,
+        66
+      ]
+    },
+    {
+      "id": "n_db",
+      "type": "security",
+      "label": "底层 · *DBErr{Code:1050}",
+      "sublabel": "实现 Error() string，自带结构化字段",
+      "tag": "链的源头",
+      "pos": [
+        90,
+        420
+      ],
+      "size": [
+        250,
+        66
+      ]
+    },
+    {
+      "id": "n_sentinel",
+      "type": "messagebus",
+      "label": "ErrNotFound",
+      "sublabel": "errors.New 语义哨兵",
+      "tag": "另一条链的源头",
+      "pos": [
+        495,
+        420
+      ],
+      "size": [
+        200,
+        66
+      ]
+    },
+    {
+      "id": "n_as",
+      "type": "database",
+      "label": "errors.As(err, &dbErr)",
+      "sublabel": "沿链逐层 Unwrap 定位 *DBErr → 取 Code",
+      "tag": "溯源：按类型",
+      "pos": [
+        495,
+        145
+      ],
+      "size": [
+        240,
+        66
+      ]
+    },
+    {
+      "id": "n_is",
+      "type": "backend",
+      "label": "errors.Is(err, ErrNotFound)",
+      "sublabel": "沿链逐层比对哨兵值 → true",
+      "tag": "溯源：按语义",
+      "pos": [
+        495,
+        280
+      ],
+      "size": [
+        240,
+        66
+      ]
+    },
+    {
+      "id": "n_unwrap",
+      "type": "cloud",
+      "label": "errors.Unwrap(err)",
+      "sublabel": "手动剥一层：返回内层 error 指针",
+      "tag": "链 = 单向指针",
+      "pos": [
+        800,
+        280
+      ],
+      "size": [
+        220,
+        66
+      ]
+    },
+    {
+      "id": "n_404",
+      "type": "external",
+      "label": "判定为资源不存在",
+      "sublabel": "返回 404 / 重试 / 兜底",
+      "tag": "业务响应",
+      "pos": [
+        800,
+        420
+      ],
+      "size": [
+        220,
+        66
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "from": "n_db",
+      "to": "n_mid",
+      "label": "%w 挂入链尾",
+      "variant": "emphasis",
+      "fromSide": "top",
+      "toSide": "bottom"
+    },
+    {
+      "from": "n_mid",
+      "to": "n_top",
+      "label": "%w 再挂一层",
+      "variant": "emphasis",
+      "fromSide": "top",
+      "toSide": "bottom"
+    },
+    {
+      "from": "n_sentinel",
+      "to": "n_mid",
+      "label": "id>100 时挂哨兵",
+      "variant": "dashed"
+    },
+    {
+      "from": "n_top",
+      "to": "n_as",
+      "label": "溯源：按类型提取",
+      "variant": "emphasis"
+    },
+    {
+      "from": "n_top",
+      "to": "n_is",
+      "label": "溯源：按语义判定"
+    },
+    {
+      "from": "n_is",
+      "to": "n_sentinel",
+      "label": "比对命中",
+      "variant": "dashed",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "from": "n_is",
+      "to": "n_unwrap",
+      "label": "也可手动剥层"
+    },
+    {
+      "from": "n_unwrap",
+      "to": "n_404",
+      "label": "剥尽后响应",
+      "variant": "emphasis",
+      "labelDy": 24
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "心智模型",
+      "items": [
+        "错误链是单向指针串：每层 %w 包装都在链头加一节",
+        "字符串消息越拼越长，链条却原样保留到源头",
+        "As 按类型溯源取结构化字段，Is 按语义溯源做判定"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "经典陷阱",
+      "items": [
+        "fmt.Errorf 用 %v 包装：消息拼上了，链却断了，As/Is 全部判不中",
+        "errors.As 要传 *DBErr 的地址（**DBErr），传值类型匹配不上指针接收者",
+        "自定义类型用值接收者实现 Error()，As 的目标却写 *DBErr，同样失配"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "如何验证",
+      "items": [
+        "go run main.go：第 2 段打印 Code=1050，证明 As 穿透了两层 %w",
+        "第 4 段手动 Unwrap 三次，逐层看到消息变短、露出哨兵",
+        "第 5 段逐层打印链条的字符串形式，对照图中三条包装箭头"
+      ]
+    }
+  ]
+}

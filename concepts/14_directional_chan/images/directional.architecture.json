@@ -1,0 +1,120 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "单向 Channel：双向通道的两个只读/只写投影",
+    "output": "images/directional.html",
+    "quality_profile": "showcase",
+    "locale": "zh-CN",
+    "legend": {
+      "mode": "hidden"
+    }
+  },
+  "components": [
+    {
+      "id": "ch",
+      "type": "database",
+      "label": "双向 channel",
+      "sublabel": "ch := make(chan int, 5)",
+      "tag": "main 持有",
+      "pos": [
+        390,
+        120
+      ],
+      "size": [
+        230,
+        66
+      ]
+    },
+    {
+      "id": "compiler",
+      "type": "security",
+      "label": "编译期方向检查",
+      "sublabel": "方向用错：直接编译错",
+      "tag": "零运行时开销",
+      "pos": [
+        750,
+        120
+      ],
+      "size": [
+        230,
+        66
+      ]
+    },
+    {
+      "id": "prod",
+      "type": "frontend",
+      "label": "生产者函数",
+      "sublabel": "func produce(ch chan<- int)",
+      "tag": "只写参数 · close 归它",
+      "pos": [
+        385,
+        330
+      ],
+      "size": [
+        240,
+        66
+      ]
+    },
+    {
+      "id": "cons",
+      "type": "backend",
+      "label": "消费者函数",
+      "sublabel": "func consume(ch <-chan int)",
+      "tag": "只读参数 · for range",
+      "pos": [
+        700,
+        330
+      ],
+      "size": [
+        240,
+        66
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "from": "ch",
+      "to": "prod",
+      "variant": "emphasis",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "from": "ch",
+      "to": "cons",
+      "variant": "emphasis",
+      "fromSide": "right",
+      "toSide": "top"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "心智模型",
+      "items": [
+        "双向 chan 传给函数时隐式转成单向，无需显式转换代码",
+        "chan<- 只能发送与 close；<-chan 只能接收",
+        "约束写在函数签名上，调用方一看便知谁是生产者谁是消费者"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "经典陷阱",
+      "items": [
+        "在 <-chan 参数上 ch<- 会编译错：invalid operation",
+        "在 chan<- 参数上 <-ch 同样编译错",
+        "单向无法转回双向：转换是单向的"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "如何验证",
+      "items": [
+        "go run main.go：5 个数被消费、close 后退出",
+        "取消注释里的错误示例行，编译即报方向错误",
+        "go vet 通过：约束不影响静态检查"
+      ]
+    }
+  ]
+}

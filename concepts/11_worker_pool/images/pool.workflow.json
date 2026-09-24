@@ -1,0 +1,201 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "Goroutine 池：任务 chan 扇出 × 结果 chan 汇合",
+    "output": "images/pool.html",
+    "quality_profile": "showcase",
+    "locale": "zh-CN",
+    "legend": {
+      "mode": "hidden"
+    }
+  },
+  "lanes": [
+    {
+      "id": "produce",
+      "label": "生产者"
+    },
+    {
+      "id": "workers",
+      "label": "worker 池 ×5"
+    },
+    {
+      "id": "collect",
+      "label": "收集与校验"
+    }
+  ],
+  "phases": [
+    {
+      "id": "enqueue",
+      "label": "投递任务",
+      "fromCol": 0,
+      "toCol": 1
+    },
+    {
+      "id": "fanout",
+      "label": "扇出消费",
+      "fromCol": 2,
+      "toCol": 3
+    },
+    {
+      "id": "gather",
+      "label": "汇合收尾",
+      "fromCol": 4,
+      "toCol": 5
+    }
+  ],
+  "mainPath": [
+    "n_prod",
+    "n_jobs",
+    "n_range",
+    "n_calc",
+    "n_results",
+    "n_close",
+    "n_verify"
+  ],
+  "nodes": [
+    {
+      "id": "n_prod",
+      "lane": "produce",
+      "col": 0,
+      "type": "external",
+      "label": "生产者 for 1..100",
+      "sublabel": "100 个 Job 入队",
+      "width": 150
+    },
+    {
+      "id": "n_jobs",
+      "lane": "produce",
+      "col": 1,
+      "type": "messagebus",
+      "label": "jobs 缓冲 100",
+      "sublabel": "投完即 close(jobs)",
+      "tag": "关闭即广播",
+      "width": 145
+    },
+    {
+      "id": "n_range",
+      "lane": "workers",
+      "col": 2,
+      "type": "frontend",
+      "label": "for range jobs",
+      "sublabel": "chan 关闭后自动退出",
+      "width": 150
+    },
+    {
+      "id": "n_calc",
+      "lane": "workers",
+      "col": 3,
+      "type": "backend",
+      "label": "process(j) 立方计算",
+      "sublabel": "分配由调度决定",
+      "width": 150
+    },
+    {
+      "id": "n_results",
+      "lane": "workers",
+      "col": 4,
+      "type": "messagebus",
+      "label": "results 缓冲 100",
+      "sublabel": "多路写入汇合",
+      "width": 145
+    },
+    {
+      "id": "n_close",
+      "lane": "collect",
+      "col": 4,
+      "type": "database",
+      "label": "Wait 后 close(results)",
+      "sublabel": "等 worker 全退出",
+      "tag": "优雅关闭",
+      "width": 150
+    },
+    {
+      "id": "n_verify",
+      "lane": "collect",
+      "col": 5,
+      "type": "cloud",
+      "label": "收集者 range results",
+      "sublabel": "校验 100 个无重复",
+      "width": 160
+    }
+  ],
+  "edges": [
+    {
+      "id": "e_prod_jobs",
+      "from": "n_prod",
+      "to": "n_jobs",
+      "label": "投 100 个任务",
+      "variant": "emphasis"
+    },
+    {
+      "id": "e_jobs_range",
+      "from": "n_jobs",
+      "to": "n_range",
+      "label": "扇出",
+      "variant": "emphasis"
+    },
+    {
+      "id": "e_range_calc",
+      "from": "n_range",
+      "to": "n_calc",
+      "label": "每任务一次"
+    },
+    {
+      "id": "e_calc_results",
+      "from": "n_calc",
+      "to": "n_results",
+      "label": "results <- r"
+    },
+    {
+      "id": "e_results_close",
+      "from": "n_results",
+      "to": "n_close",
+      "label": "计数归零"
+    },
+    {
+      "id": "e_close_verify",
+      "from": "n_close",
+      "to": "n_verify",
+      "label": "排空后退出",
+      "variant": "emphasis"
+    },
+    {
+      "id": "e_verify_jobs",
+      "from": "n_verify",
+      "to": "n_jobs",
+      "label": "发送方关闭",
+      "variant": "dashed",
+      "role": "return"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "心智模型",
+      "items": [
+        "并发度由 worker 数（5）决定，与任务数（100）解耦",
+        "jobs chan 是任务队列，results chan 是天然的结果汇合点",
+        "关闭是广播：close(jobs) 让所有 worker 的 for range 逐个退出"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "经典陷阱",
+      "items": [
+        "close 只能由发送方调用，且只能关一次，重复 close 会 panic",
+        "必须 workers.Wait() 之后才能 close(results)，否则收集者漏收",
+        "worker 编号要用参数传进 goroutine，闭包直接捕获循环变量有共享风险"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "如何验证",
+      "items": [
+        "go run main.go：100 行处理日志 + 最终校验行（全对且无重复: true）",
+        "多跑几次：worker 分配每次不同，结果集始终相同",
+        "去掉 close(jobs) 会死锁；去掉 Wait 就 close(results) 会丢结果"
+      ]
+    }
+  ]
+}

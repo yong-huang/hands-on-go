@@ -1,0 +1,176 @@
+{
+  "schema_version": 1,
+  "diagram_type": "sequence",
+  "meta": {
+    "title": "反射动态创建与调用：New 实例 → MethodByName → Call → 返回值拆包",
+    "output": "images/refcall.html",
+    "viewBox": [
+      980,
+      600
+    ],
+    "quality_profile": "showcase",
+    "locale": "zh-CN",
+    "legend": {
+      "mode": "hidden"
+    }
+  },
+  "participants": [
+    {
+      "id": "caller",
+      "type": "frontend",
+      "label": "main",
+      "sublabel": "只有类型信息"
+    },
+    {
+      "id": "rf",
+      "type": "backend",
+      "label": "reflect",
+      "sublabel": "New / Call 门面"
+    },
+    {
+      "id": "inst",
+      "type": "messagebus",
+      "label": "Greeter 实例",
+      "sublabel": "运行时凭空创建"
+    },
+    {
+      "id": "fn",
+      "type": "backend",
+      "label": "add(a,b)",
+      "sublabel": "普通函数同法可调"
+    }
+  ],
+  "segments": [
+    {
+      "from": 163,
+      "to": 218,
+      "label": "① reflect.New 创建实例"
+    },
+    {
+      "from": 236,
+      "to": 298,
+      "label": "② MethodByName 查方法"
+    },
+    {
+      "from": 323,
+      "to": 408,
+      "label": "③ Call 带参调用"
+    },
+    {
+      "from": 428,
+      "to": 498,
+      "label": "④ 返回值拆包"
+    },
+    {
+      "from": 488,
+      "to": 545,
+      "label": "⑤ 动态调用任意函数"
+    }
+  ],
+  "messages": [
+    {
+      "from": "caller",
+      "to": "rf",
+      "y": 170,
+      "label": "reflect.New(TypeOf(Greeter{}))",
+      "variant": "emphasis"
+    },
+    {
+      "from": "rf",
+      "to": "caller",
+      "y": 198,
+      "label": "返回 *Greeter；Elem() 写 Prefix 字段",
+      "variant": "return"
+    },
+    {
+      "from": "caller",
+      "to": "rf",
+      "y": 240,
+      "label": "ptr.MethodByName(\"Greet\")",
+      "variant": "emphasis"
+    },
+    {
+      "from": "rf",
+      "to": "caller",
+      "y": 276,
+      "label": "方法 Value（IsValid 校验存在性）",
+      "variant": "return"
+    },
+    {
+      "from": "caller",
+      "to": "inst",
+      "y": 343,
+      "label": "Call([]Value{\"Watson\"})：参数逐个包成 reflect.Value",
+      "variant": "emphasis"
+    },
+    {
+      "from": "inst",
+      "to": "caller",
+      "y": 393,
+      "label": "返回 []Value：按位置拆包 results[0].String()",
+      "variant": "return"
+    },
+    {
+      "from": "caller",
+      "to": "fn",
+      "y": 438,
+      "label": "ValueOf(add).Call([2, 40]) → Int() = 42"
+    },
+    {
+      "from": "fn",
+      "to": "caller",
+      "y": 470,
+      "label": "返回 []Value：results[0].Int() 拆包得 42",
+      "variant": "return"
+    }
+  ],
+  "activations": [
+    {
+      "participant": "rf",
+      "from": 167,
+      "to": 293,
+      "type": "backend"
+    },
+    {
+      "participant": "inst",
+      "from": 323,
+      "to": 403,
+      "type": "messagebus"
+    },
+    {
+      "participant": "fn",
+      "from": 428,
+      "to": 500,
+      "type": "backend"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "三个关键动作",
+      "items": [
+        "reflect.New(T) 造指针，Elem() 才可 Set",
+        "指针值上 MethodByName 查到完整方法集",
+        "Call 的参数与返回值都是 []reflect.Value"
+      ]
+    },
+    {
+      "dot": "orange",
+      "title": "代价与风险",
+      "items": [
+        "反射调用比直接调用慢约一个数量级",
+        "方法/字段名是字符串，编译期查不出错",
+        "签名不匹配在运行时 panic，调用前先看 Type"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "典型用途",
+      "items": [
+        "插件系统：按名字调接口实现",
+        "RPC/序列化框架动态派发",
+        "还原为 Interface() 后可回到静态调用"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,124 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "Shape 接口：两实现一循环，Go 的多态",
+    "output": "images/shape.html",
+    "quality_profile": "showcase",
+    "locale": "zh-CN",
+    "legend": {
+      "mode": "hidden"
+    }
+  },
+  "components": [
+    {
+      "id": "n_iface",
+      "type": "security",
+      "label": "Shape 接口",
+      "sublabel": "Area() float64 · Perimeter() float64 · Name() string",
+      "tag": "隐式实现，无需 implements",
+      "pos": [
+        390,
+        60
+      ],
+      "size": [
+        260,
+        72
+      ]
+    },
+    {
+      "id": "n_circle",
+      "type": "frontend",
+      "label": "Circle 圆",
+      "sublabel": "全部值接收者：func (c Circle) Area()",
+      "tag": "值类型即可赋给 Shape",
+      "pos": [
+        90,
+        230
+      ],
+      "size": [
+        250,
+        72
+      ]
+    },
+    {
+      "id": "n_rect",
+      "type": "backend",
+      "label": "Rectangle 矩形",
+      "sublabel": "Area/Perimeter 值接收者 · Scale 指针接收者",
+      "tag": "改字段必须 *Rectangle",
+      "pos": [
+        700,
+        230
+      ],
+      "size": [
+        260,
+        72
+      ]
+    },
+    {
+      "id": "n_slice",
+      "type": "database",
+      "label": "[]Shape 接口切片",
+      "sublabel": "动态类型各不相同，方法调用走各自实现",
+      "tag": "多态遍历",
+      "pos": [
+        390,
+        400
+      ],
+      "size": [
+        260,
+        72
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "from": "n_circle",
+      "to": "n_iface",
+      "variant": "emphasis",
+      "fromSide": "top",
+      "toSide": "left"
+    },
+    {
+      "from": "n_rect",
+      "to": "n_iface",
+      "variant": "emphasis",
+      "fromSide": "top",
+      "toSide": "right"
+    },
+    {
+      "from": "n_iface",
+      "to": "n_slice"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "心智模型",
+      "items": [
+        "接口声明行为，struct 携带数据",
+        "方法集覆盖接口全部方法 = 自动实现",
+        "sh.Area() 按动态类型分派到具体实现"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "经典陷阱",
+      "items": [
+        "值类型的接口方法集只有值接收者方法",
+        "Scale 是 *Rectangle 方法：var s Shape = r 后无法经接口调它",
+        "r.Scale(2) 能编译是因为 r 可寻址，编译器自动取 &r"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "如何验证",
+      "items": [
+        "go run main.go 看 %T 打出动态类型 main.Circle",
+        "[]Shape 一次循环遍历两种实现，总面积 27.7080",
+        "把 Area 改成指针接收者，赋值 var s Shape = c 立即编译错"
+      ]
+    }
+  ]
+}

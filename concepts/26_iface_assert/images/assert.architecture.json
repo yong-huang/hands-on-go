@@ -1,0 +1,183 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "接口组合与类型断言：小接口拼大接口，运行时再验明正身",
+    "output": "images/assert.html",
+    "quality_profile": "showcase",
+    "locale": "zh-CN",
+    "legend": {
+      "mode": "hidden"
+    }
+  },
+  "components": [
+    {
+      "id": "n_reader",
+      "type": "frontend",
+      "label": "Reader 接口",
+      "sublabel": "Read() string",
+      "tag": "小接口",
+      "pos": [
+        300,
+        80
+      ],
+      "size": [
+        200,
+        66
+      ]
+    },
+    {
+      "id": "n_writer",
+      "type": "frontend",
+      "label": "Writer 接口",
+      "sublabel": "Write(s string)",
+      "tag": "小接口",
+      "pos": [
+        760,
+        80
+      ],
+      "size": [
+        200,
+        66
+      ]
+    },
+    {
+      "id": "n_rw",
+      "type": "messagebus",
+      "label": "ReadWriter 接口",
+      "sublabel": "接口嵌入：Reader + Writer",
+      "tag": "组合",
+      "pos": [
+        360,
+        265
+      ],
+      "size": [
+        210,
+        66
+      ]
+    },
+    {
+      "id": "n_mem",
+      "type": "backend",
+      "label": "*Memory 实现",
+      "sublabel": "方法集自动满足三接口",
+      "tag": "无 implements",
+      "pos": [
+        40,
+        460
+      ],
+      "size": [
+        220,
+        66
+      ]
+    },
+    {
+      "id": "n_assert2",
+      "type": "security",
+      "label": "双值断言",
+      "sublabel": "v, ok := x.(T) · 失败 ok=false",
+      "tag": "安全",
+      "pos": [
+        400,
+        460
+      ],
+      "size": [
+        230,
+        66
+      ]
+    },
+    {
+      "id": "n_assert1",
+      "type": "database",
+      "label": "单值断言",
+      "sublabel": "v := x.(T) · 失败 panic",
+      "tag": "配 recover",
+      "pos": [
+        670,
+        460
+      ],
+      "size": [
+        220,
+        66
+      ]
+    },
+    {
+      "id": "n_switch",
+      "type": "security",
+      "label": "类型 switch",
+      "sublabel": "switch v := x.(type) · string/int/bool/default",
+      "tag": "多分支首选",
+      "pos": [
+        930,
+        460
+      ],
+      "size": [
+        240,
+        66
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "from": "n_reader",
+      "to": "n_rw",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "from": "n_writer",
+      "to": "n_rw",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "from": "n_mem",
+      "to": "n_rw",
+      "variant": "emphasis",
+      "fromSide": "top",
+      "toSide": "bottom"
+    },
+    {
+      "from": "n_mem",
+      "to": "n_assert2"
+    },
+    {
+      "from": "n_assert2",
+      "to": "n_assert1"
+    },
+    {
+      "from": "n_assert1",
+      "to": "n_switch",
+      "variant": "emphasis"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "心智模型",
+      "items": [
+        "接口嵌入=小接口拼大接口，io.ReadWriter 就这么拼出",
+        "实现全部方法即自动满足接口，大小接口互转全在编译期",
+        "断言是运行时的『验明正身』：问接口变量里装的具体类型"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "经典陷阱",
+      "items": [
+        "单值断言 x.(T) 失败直接 panic，不是返回零值",
+        "nil 接口做任何断言都 panic，先判 nil 再断言",
+        "值接收者方法集不含指针方法：&Memory 才满足含 Write 的接口"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "如何验证",
+      "items": [
+        "go run main.go 看 recover 拦下 interface conversion panic",
+        "双值断言失败：ok=false、v 为零值，程序继续跑",
+        "类型 switch default 分支接住 float64 等未列举类型"
+      ]
+    }
+  ]
+}

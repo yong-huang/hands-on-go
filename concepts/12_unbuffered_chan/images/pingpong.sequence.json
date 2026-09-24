@@ -1,0 +1,105 @@
+{
+  "schema_version": 1,
+  "diagram_type": "sequence",
+  "meta": {
+    "title": "无缓冲 channel：ping/pong 交替的发送-接收握手时序",
+    "output": "images/pingpong.html",
+    "viewBox": [
+      1000,
+      500
+    ],
+    "quality_profile": "showcase",
+    "locale": "zh-CN",
+    "legend": {
+      "mode": "hidden"
+    }
+  },
+  "participants": [
+    {
+      "id": "ping",
+      "type": "frontend",
+      "label": "ping 侧·main",
+      "sublabel": "serve <- i 发球阻塞"
+    },
+    {
+      "id": "chans",
+      "type": "messagebus",
+      "label": "serve / ball",
+      "sublabel": "无缓冲·零容量"
+    },
+    {
+      "id": "pong",
+      "type": "backend",
+      "label": "pong 协程",
+      "sublabel": "<-serve 收球即回传"
+    }
+  ],
+  "segments": [
+    {
+      "from": 150,
+      "to": 210,
+      "label": "握手① 发球：send 等到 recv 才放行"
+    },
+    {
+      "from": 232,
+      "to": 292,
+      "label": "pong 收球并回传"
+    },
+    {
+      "from": 314,
+      "to": 374,
+      "label": "握手② 回球：send/recv 在此会合"
+    },
+    {
+      "from": 396,
+      "to": 446,
+      "label": "循环 10 次后 close 收尾"
+    }
+  ],
+  "messages": [
+    {
+      "from": "ping",
+      "to": "chans",
+      "y": 162,
+      "label": "serve <- i：阻塞——此刻 pong 未到 <-serve，谁也走不动",
+      "variant": "emphasis"
+    },
+    {
+      "from": "chans",
+      "to": "pong",
+      "y": 190,
+      "label": "值在第 162 行的握手瞬间直接交付（零拷贝经过），无缓冲不存值",
+      "variant": "dashed"
+    },
+    {
+      "from": "pong",
+      "to": "ping",
+      "y": 262,
+      "label": "ball <- i ← main 的 <-ball：第二次握手，回球即同步点",
+      "variant": "emphasis"
+    },
+    {
+      "from": "ping",
+      "to": "chans",
+      "y": 330,
+      "label": "下一轮 serve <- i+1：顺序严格交替，绝不连续两次发球",
+      "variant": "emphasis"
+    },
+    {
+      "from": "ping",
+      "to": "chans",
+      "y": 370,
+      "label": "close(serve)：pong 侧 <-serve 得 ok=false",
+      "variant": "dashed"
+    },
+    {
+      "from": "pong",
+      "to": "ping",
+      "y": 414,
+      "label": "close(done)：结束广播，main 随后退出",
+      "variant": "dashed"
+    }
+  ],
+  "activations": [],
+  "cards": []
+}

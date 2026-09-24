@@ -1,0 +1,200 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "并行度控制：单队列串行 vs P 路并行",
+    "output": "images/parallel.html",
+    "quality_profile": "showcase",
+    "locale": "zh-CN",
+    "legend": {
+      "mode": "hidden"
+    }
+  },
+  "lanes": [
+    {
+      "id": "src",
+      "label": "任务源"
+    },
+    {
+      "id": "par",
+      "label": "P=4 并行路（主）"
+    },
+    {
+      "id": "ser",
+      "label": "P=1 串行路（对照）"
+    }
+  ],
+  "phases": [
+    {
+      "id": "split",
+      "label": "切分工作量",
+      "fromCol": 0,
+      "toCol": 1
+    },
+    {
+      "id": "dispatch",
+      "label": "P 路分发",
+      "fromCol": 2,
+      "toCol": 2
+    },
+    {
+      "id": "join",
+      "label": "汇合计时",
+      "fromCol": 3,
+      "toCol": 4
+    }
+  ],
+  "mainPath": [
+    "n_tasks",
+    "n_split",
+    "n_p4",
+    "n_w4",
+    "n_join"
+  ],
+  "nodes": [
+    {
+      "id": "n_tasks",
+      "lane": "src",
+      "col": 0,
+      "type": "external",
+      "label": "32 次 fib(30) CPU 密集任务",
+      "sublabel": "总工作量恒定，与 P 无关",
+      "width": 180
+    },
+    {
+      "id": "n_split",
+      "lane": "src",
+      "col": 1,
+      "type": "frontend",
+      "label": "切给 P 个 goroutine",
+      "sublabel": "各做 32/P 次，WaitGroup 等待",
+      "width": 160
+    },
+    {
+      "id": "n_p1",
+      "lane": "ser",
+      "col": 2,
+      "type": "messagebus",
+      "label": "GOMAXPROCS(1)：单队列串行",
+      "sublabel": "1 个 OS 线程排队执行",
+      "tag": "并发交织·无并行",
+      "width": 190
+    },
+    {
+      "id": "n_p4",
+      "lane": "par",
+      "col": 2,
+      "type": "messagebus",
+      "label": "GOMAXPROCS(4)：4 路并行",
+      "sublabel": "4 个线程各占一核",
+      "tag": "真并行",
+      "width": 190
+    },
+    {
+      "id": "n_w4",
+      "lane": "par",
+      "col": 3,
+      "type": "database",
+      "label": "worker1..4 同时计算",
+      "sublabel": "核够多时耗时 ≈ 1/4",
+      "width": 170
+    },
+    {
+      "id": "n_w1",
+      "lane": "ser",
+      "col": 3,
+      "type": "database",
+      "label": "worker1 逐个计算",
+      "sublabel": "耗时 ≈ 4 倍于 P=4",
+      "width": 170
+    },
+    {
+      "id": "n_join",
+      "lane": "par",
+      "col": 4,
+      "type": "cloud",
+      "label": "wg.Wait() 汇合",
+      "sublabel": "time.Since 记录总耗时与加速比",
+      "width": 170
+    }
+  ],
+  "edges": [
+    {
+      "id": "e_tasks_split",
+      "from": "n_tasks",
+      "to": "n_split",
+      "label": "均分工作量",
+      "variant": "emphasis"
+    },
+    {
+      "id": "e_split_p4",
+      "from": "n_split",
+      "to": "n_p4",
+      "label": "P=4 主路径",
+      "variant": "emphasis"
+    },
+    {
+      "id": "e_split_p1",
+      "from": "n_split",
+      "to": "n_p1",
+      "label": "P=1 对照",
+      "variant": "dashed",
+      "role": "branch"
+    },
+    {
+      "id": "e_p4_w4",
+      "from": "n_p4",
+      "to": "n_w4",
+      "label": "同时调度",
+      "variant": "emphasis"
+    },
+    {
+      "id": "e_p1_w1",
+      "from": "n_p1",
+      "to": "n_w1",
+      "label": "串行排队"
+    },
+    {
+      "id": "e_w4_join",
+      "from": "n_w4",
+      "to": "n_join",
+      "label": "最快完成",
+      "variant": "emphasis"
+    },
+    {
+      "id": "e_w1_join",
+      "from": "n_w1",
+      "to": "n_join",
+      "label": "最慢完成"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "心智模型",
+      "items": [
+        "并发是结构：goroutine 交织执行；并行是执行：多个核同时算",
+        "GOMAXPROCS 设定同时执行 goroutine 的 OS 线程数上限",
+        "总工作量恒定时，P 路并行的耗时理论上趋近 1/P"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "经典陷阱",
+      "items": [
+        "goroutine 数量再多，P=1 时也只有交织没有并行",
+        "P 超过物理核数无收益，调度与缓存竞争可能让耗时反升",
+        "IO 密集任务不是这种线性关系：阻塞让出 P，P 可以小于 goroutine 数"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "如何验证",
+      "items": [
+        "go run main.go 看 P=1/2/4/8 的耗时与加速比",
+        "python3 viz.py 重画柱状图（真实测量）",
+        "本机 18 核实测接近线性加速；核少的机器 P=8 可能无收益"
+      ]
+    }
+  ]
+}

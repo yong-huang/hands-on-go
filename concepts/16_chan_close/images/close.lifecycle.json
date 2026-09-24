@@ -1,0 +1,158 @@
+{
+  "schema_version": 1,
+  "diagram_type": "lifecycle",
+  "meta": {
+    "title": "Channel 关闭语义：零值 / ok=false / range 退出 / 重复 close / 广播",
+    "output": "images/close.html",
+    "quality_profile": "showcase",
+    "locale": "zh-CN",
+    "viewBox": [
+      980,
+      566
+    ],
+    "legend": {
+      "mode": "hidden"
+    }
+  },
+  "lanes": [
+    {
+      "id": "main",
+      "label": "channel 生命周期（主路径）"
+    },
+    {
+      "id": "terminal",
+      "label": "close 之后的两件事"
+    }
+  ],
+  "states": [
+    {
+      "id": "open",
+      "type": "start",
+      "label": "channel 打开态",
+      "sublabel": "可收发，通信进行中",
+      "lane": "main",
+      "col": 0,
+      "step": "01",
+      "tag": "make 之后"
+    },
+    {
+      "id": "close",
+      "type": "active",
+      "label": "close(ch)",
+      "sublabel": "发送方宣告不再发值",
+      "lane": "main",
+      "col": 1,
+      "step": "02",
+      "tag": "只由发送方调"
+    },
+    {
+      "id": "zero",
+      "type": "neutral",
+      "label": "排空后读取",
+      "sublabel": "得零值 · ok=false",
+      "lane": "main",
+      "col": 2,
+      "step": "03",
+      "tag": "不阻塞"
+    },
+    {
+      "id": "rangeexit",
+      "type": "success",
+      "label": "for range 退出",
+      "sublabel": "关闭且排空即结束",
+      "lane": "main",
+      "col": 3,
+      "step": "04",
+      "tag": "循环收尾"
+    },
+    {
+      "id": "repclose",
+      "type": "failure",
+      "label": "重复 close",
+      "sublabel": "panic · recover 可接",
+      "lane": "main",
+      "col": 4,
+      "step": "05",
+      "tag": "同通道仅一次"
+    },
+    {
+      "id": "drain",
+      "type": "waiting",
+      "label": "读余值",
+      "sublabel": "close 不清空缓冲",
+      "lane": "terminal",
+      "col": 1,
+      "tag": "先排空",
+      "yOffset": -90
+    },
+    {
+      "id": "broadcast",
+      "type": "success",
+      "label": "close 广播",
+      "sublabel": "唤醒全部等待接收者",
+      "lane": "terminal",
+      "col": 2,
+      "tag": "退出信号",
+      "yOffset": -90
+    }
+  ],
+  "transitions": [
+    {
+      "id": "t1",
+      "from": "open",
+      "to": "close"
+    },
+    {
+      "id": "t2",
+      "from": "close",
+      "to": "drain",
+      "variant": "dashed",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "t3",
+      "from": "drain",
+      "to": "zero",
+      "fromSide": "top",
+      "toSide": "bottom"
+    },
+    {
+      "id": "t4",
+      "from": "zero",
+      "to": "rangeexit"
+    },
+    {
+      "id": "t5",
+      "from": "rangeexit",
+      "to": "repclose",
+      "variant": "emphasis"
+    },
+    {
+      "id": "t6",
+      "from": "drain",
+      "to": "broadcast",
+      "variant": "dashed"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "心智模型",
+      "items": [
+        "close 是发送方说\"没有了\"，不是销毁通道",
+        "谁发送谁 close；接收方永远不 close",
+        "关闭后读取立即返回：余值在前，零值兜底"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "经典陷阱",
+      "items": [
+        "重复 close 同一通道 panic：close of closed channel",
+        "向已关闭通道发送数据同样 panic",
+        "nil 通道不可 close，收发永久阻塞"
+      ]
+    }
+  ]
+}

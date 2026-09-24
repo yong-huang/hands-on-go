@@ -1,0 +1,142 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "反射基础：TypeOf/ValueOf 双入口，一个只读，一个可写",
+    "output": "images/reflect.html",
+    "quality_profile": "showcase",
+    "locale": "zh-CN",
+    "legend": {
+      "mode": "hidden"
+    }
+  },
+  "components": [
+    {
+      "id": "n_typeof",
+      "type": "frontend",
+      "label": "reflect.TypeOf",
+      "sublabel": "Name=Employee · Kind=struct · NumField=3",
+      "tag": "看类型",
+      "pos": [
+        40,
+        110
+      ],
+      "size": [
+        230,
+        66
+      ]
+    },
+    {
+      "id": "n_valueof",
+      "type": "backend",
+      "label": "reflect.ValueOf",
+      "sublabel": "值的副本 · CanSet=false 不可写",
+      "tag": "看值",
+      "pos": [
+        390,
+        110
+      ],
+      "size": [
+        230,
+        66
+      ]
+    },
+    {
+      "id": "n_new",
+      "type": "messagebus",
+      "label": "reflect.New + Elem()",
+      "sublabel": "新分配的本体 · CanSet=true",
+      "tag": "可写入口",
+      "pos": [
+        1020,
+        110
+      ],
+      "size": [
+        230,
+        66
+      ]
+    },
+    {
+      "id": "n_fields",
+      "type": "security",
+      "label": "字段遍历 NumField + Field(i)",
+      "sublabel": "Name / Type / Value / Kind 逐列读出",
+      "pos": [
+        375,
+        320
+      ],
+      "size": [
+        260,
+        66
+      ]
+    },
+    {
+      "id": "n_set",
+      "type": "database",
+      "label": "SetString / SetInt 写入",
+      "sublabel": "按字段类型调用对应 Set",
+      "tag": "有运行时开销",
+      "pos": [
+        660,
+        320
+      ],
+      "size": [
+        240,
+        66
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "from": "n_typeof",
+      "to": "n_fields"
+    },
+    {
+      "from": "n_valueof",
+      "to": "n_fields",
+      "variant": "emphasis",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "from": "n_fields",
+      "to": "n_set",
+      "variant": "emphasis"
+    },
+    {
+      "from": "n_new",
+      "to": "n_set",
+      "fromSide": "left",
+      "toSide": "right"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "心智模型",
+      "items": [
+        "TypeOf 给类型信息，ValueOf 给值信息，两入口各管一摊",
+        "Name 是类型名，Kind 是底层种类（type ID int 的 Kind 仍是 int）",
+        "CanSet=false 的 Value 只读；reflect.New + Elem() 才可写"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "经典陷阱",
+      "items": [
+        "ValueOf(变量) 拿到的是副本，直接 Set 会 panic（CanSet=false）",
+        "要改原变量需 ValueOf(&emp).Elem()，或 New 分配后写回指针",
+        "Set 必须类型匹配：SetString/SetInt/SetFloat 各归各位"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "如何验证",
+      "items": [
+        "go run main.go：ValueOf 的 CanSet=false，New+Elem 后变 true",
+        "字段表逐列打印 Name/Type/Value/Kind 与 json tag",
+        "反射写入 {Grace 45 0}，原 emp 的 Name 仍是 Ada"
+      ]
+    }
+  ]
+}

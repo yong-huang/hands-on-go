@@ -1,0 +1,134 @@
+{
+  "schema_version": 1,
+  "diagram_type": "lifecycle",
+  "meta": {
+    "title": "有缓冲 Channel 生命周期：未满可发 / 满则阻塞 / 关闭后排空",
+    "output": "images/bufchan.html",
+    "quality_profile": "showcase",
+    "locale": "zh-CN",
+    "viewBox": [
+      960,
+      566
+    ]
+  },
+  "lanes": [
+    {
+      "id": "main",
+      "label": "缓冲 3 的状态机（主路径）"
+    },
+    {
+      "id": "terminal",
+      "label": "关闭后排空"
+    }
+  ],
+  "states": [
+    {
+      "id": "create",
+      "type": "start",
+      "label": "make(chan int, 3)",
+      "sublabel": "len=0 cap=3 异步队列就绪",
+      "lane": "main",
+      "col": 0,
+      "step": "01",
+      "tag": "cap(ch)=3"
+    },
+    {
+      "id": "notfull",
+      "type": "active",
+      "label": "未满可发",
+      "sublabel": "前 3 条即刻返回，不等接收方",
+      "lane": "main",
+      "col": 1,
+      "step": "02",
+      "tag": "len(ch)<3"
+    },
+    {
+      "id": "full",
+      "type": "waiting",
+      "label": "缓冲满 → 发送阻塞",
+      "sublabel": "第 4 条起发送阻塞",
+      "lane": "main",
+      "col": 2,
+      "step": "03",
+      "tag": "len(ch)==3"
+    },
+    {
+      "id": "resume",
+      "type": "active",
+      "label": "消费者取走一个",
+      "sublabel": "阻塞中的发送被唤醒继续入队",
+      "lane": "main",
+      "col": 3,
+      "step": "04",
+      "tag": "发送方恢复"
+    },
+    {
+      "id": "close",
+      "type": "success",
+      "label": "close(ch)",
+      "sublabel": "宣告不再有新消息",
+      "lane": "main",
+      "col": 4,
+      "step": "05",
+      "tag": "发完 10 条"
+    },
+    {
+      "id": "drainread",
+      "type": "neutral",
+      "label": "for range 继续读",
+      "sublabel": "close 不清空，先排空剩余",
+      "lane": "terminal",
+      "col": 1,
+      "tag": "读到 8/9/10",
+      "yOffset": -90
+    },
+    {
+      "id": "done",
+      "type": "success",
+      "label": "缓冲空 → 循环退出",
+      "sublabel": "对账：发 10 收 10",
+      "lane": "terminal",
+      "col": 2,
+      "tag": "len(ch)=0",
+      "yOffset": -90
+    }
+  ],
+  "transitions": [
+    {
+      "id": "t1",
+      "from": "create",
+      "to": "notfull"
+    },
+    {
+      "id": "t2",
+      "from": "notfull",
+      "to": "full",
+      "variant": "emphasis",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "t3",
+      "from": "full",
+      "to": "resume"
+    },
+    {
+      "id": "t4",
+      "from": "resume",
+      "to": "close"
+    },
+    {
+      "id": "t5",
+      "from": "close",
+      "to": "drainread",
+      "variant": "dashed",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "t6",
+      "from": "drainread",
+      "to": "done"
+    }
+  ]
+}

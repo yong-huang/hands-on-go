@@ -1,0 +1,232 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "错误处理流：哨兵 error → %w 包装 → errors.Is 判定",
+    "output": "images/errflow.html",
+    "quality_profile": "showcase",
+    "locale": "zh-CN",
+    "legend": {
+      "mode": "hidden"
+    }
+  },
+  "lanes": [
+    {
+      "id": "caller",
+      "label": "调用方"
+    },
+    {
+      "id": "fn",
+      "label": "safeDivide"
+    },
+    {
+      "id": "chain",
+      "label": "错误链"
+    },
+    {
+      "id": "okpath",
+      "label": "正常路径"
+    }
+  ],
+  "phases": [
+    {
+      "id": "call",
+      "label": "发起调用",
+      "fromCol": 0,
+      "toCol": 1
+    },
+    {
+      "id": "wrap",
+      "label": "包装返回",
+      "fromCol": 2,
+      "toCol": 3
+    },
+    {
+      "id": "decide",
+      "label": "判定与响应",
+      "fromCol": 4,
+      "toCol": 5
+    }
+  ],
+  "mainPath": [
+    "n_call",
+    "n_zero",
+    "n_wrap",
+    "n_ret",
+    "n_is",
+    "n_hint"
+  ],
+  "nodes": [
+    {
+      "id": "n_call",
+      "lane": "caller",
+      "col": 0,
+      "type": "external",
+      "label": "safeDivide(a, b)",
+      "sublabel": "(v, err) 双返回",
+      "width": 150
+    },
+    {
+      "id": "n_ok",
+      "lane": "okpath",
+      "col": 5,
+      "type": "database",
+      "label": "err == nil",
+      "sublabel": "正常使用 v",
+      "width": 140,
+      "tag": "正常路径"
+    },
+    {
+      "id": "n_zero",
+      "lane": "fn",
+      "col": 1,
+      "type": "frontend",
+      "label": "if b == 0",
+      "sublabel": "除零检查",
+      "width": 120
+    },
+    {
+      "id": "n_sentinel",
+      "lane": "fn",
+      "col": 2,
+      "type": "messagebus",
+      "label": "ErrDivisionByZero",
+      "sublabel": "errors.New 哨兵锚点",
+      "tag": "判定锚点",
+      "width": 150
+    },
+    {
+      "id": "n_wrap",
+      "lane": "fn",
+      "col": 3,
+      "type": "backend",
+      "label": "fmt.Errorf(\"…: %w\", 哨兵)",
+      "sublabel": "加上下文，保留链",
+      "width": 170
+    },
+    {
+      "id": "n_ret",
+      "lane": "chain",
+      "col": 3,
+      "type": "messagebus",
+      "label": "err = 前缀 + 原文",
+      "sublabel": "== 裸比对已失效",
+      "width": 190
+    },
+    {
+      "id": "n_is",
+      "lane": "chain",
+      "col": 4,
+      "type": "backend",
+      "label": "errors.Is(err, 哨兵)",
+      "sublabel": "穿透包装链 → true",
+      "width": 190
+    },
+    {
+      "id": "n_hint",
+      "lane": "chain",
+      "col": 5,
+      "type": "cloud",
+      "label": "打印友好提示",
+      "sublabel": "“请换非零分母重试”",
+      "width": 160
+    },
+    {
+      "id": "n_ignore",
+      "lane": "caller",
+      "col": 5,
+      "type": "database",
+      "label": "v, _ := safeDivide(9,3)",
+      "sublabel": "_ 显式忽略错误",
+      "tag": "显式丢弃",
+      "width": 160
+    }
+  ],
+  "edges": [
+    {
+      "id": "e_call_zero",
+      "from": "n_call",
+      "to": "n_zero",
+      "label": "b == 0 ?",
+      "variant": "emphasis"
+    },
+    {
+      "id": "e_call_ok",
+      "from": "n_call",
+      "to": "n_ok",
+      "label": "b != 0",
+      "variant": "dashed",
+      "role": "branch"
+    },
+    {
+      "id": "e_zero_wrap",
+      "from": "n_zero",
+      "to": "n_wrap",
+      "label": "是",
+      "variant": "emphasis"
+    },
+    {
+      "id": "e_sentinel_wrap",
+      "from": "n_sentinel",
+      "to": "n_wrap",
+      "label": "%w 挂入链尾"
+    },
+    {
+      "id": "e_wrap_ret",
+      "from": "n_wrap",
+      "to": "n_ret",
+      "label": "返回包装错误",
+      "variant": "emphasis"
+    },
+    {
+      "id": "e_ret_is",
+      "from": "n_ret",
+      "to": "n_is",
+      "label": "调用方判定",
+      "variant": "emphasis"
+    },
+    {
+      "id": "e_is_hint",
+      "from": "n_is",
+      "to": "n_hint",
+      "label": "命中 → 处理"
+    },
+    {
+      "id": "e_is_ignore",
+      "from": "n_is",
+      "to": "n_ignore",
+      "variant": "dashed",
+      "role": "branch",
+      "label": "无关错误 → 忽略需 _"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "心智模型",
+      "items": [
+        "error 只是内置接口：任何实现 Error() string 的类型都是 error",
+        "哨兵 error 是包级锚点，调用方靠它识别错误类别",
+        "%w 包装 = 加上下文 + 保留链条，errors.Is 沿链穿透比对"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "经典陷阱",
+      "items": [
+        "包装后 err == 哨兵 变为 false，裸比对失效，必须用 errors.Is",
+        "fmt.Errorf 用 %v 而不是 %w：错误链断裂，errors.Is 判不中",
+        "接收 err 却不使用是编译错；不处理必须写 v, _ := f()"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "如何验证",
+      "items": [
+        "go run main.go 第 2 节：== 输出 false，errors.Is 输出 true",
+        "第 3 节：*main.OpsError 实现 Error() string，可直接当 error 用",
+        "第 4 节：取消注释未使用的 err 即编译错，_ 是唯一合法忽略"
+      ]
+    }
+  ]
+}

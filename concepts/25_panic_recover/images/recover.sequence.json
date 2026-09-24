@@ -1,0 +1,168 @@
+{
+  "schema_version": 1,
+  "diagram_type": "sequence",
+  "meta": {
+    "title": "正常流 → panic 抛出 → defer recover 拦截 → 继续执行",
+    "output": "images/recover.html",
+    "viewBox": [
+      980,
+      580
+    ],
+    "quality_profile": "showcase",
+    "locale": "zh-CN",
+    "legend": {
+      "mode": "hidden"
+    }
+  },
+  "participants": [
+    {
+      "id": "main",
+      "type": "frontend",
+      "label": "main",
+      "sublabel": "主 goroutine"
+    },
+    {
+      "id": "safe",
+      "type": "backend",
+      "label": "safeCall(fn)",
+      "sublabel": "defer + recover"
+    },
+    {
+      "id": "fn",
+      "type": "backend",
+      "label": "fn()",
+      "sublabel": "panic(\"boom\")"
+    },
+    {
+      "id": "child",
+      "type": "messagebus",
+      "label": "子 goroutine",
+      "sublabel": "goroutine 内自行兜底"
+    }
+  ],
+  "segments": [
+    {
+      "from": 160,
+      "to": 214,
+      "label": "① 正常流"
+    },
+    {
+      "from": 236,
+      "to": 296,
+      "label": "② panic 抛出，沿栈上溯"
+    },
+    {
+      "from": 318,
+      "to": 380,
+      "label": "③ defer 中 recover 拦截"
+    },
+    {
+      "from": 402,
+      "to": 460,
+      "label": "④ 恢复后继续执行"
+    },
+    {
+      "from": 462,
+      "to": 510,
+      "label": "跨 goroutine 不可恢复"
+    }
+  ],
+  "messages": [
+    {
+      "from": "main",
+      "to": "safe",
+      "y": 168,
+      "label": "safeCall(risky)",
+      "variant": "emphasis"
+    },
+    {
+      "from": "safe",
+      "to": "fn",
+      "y": 196,
+      "label": "调用 fn()"
+    },
+    {
+      "from": "fn",
+      "to": "safe",
+      "y": 250,
+      "label": "panic(\"boom\") 沿调用栈向上传播",
+      "variant": "dashed"
+    },
+    {
+      "from": "fn",
+      "to": "safe",
+      "y": 336,
+      "label": "defer 执行 → recover() 捕获，转成 error"
+    },
+    {
+      "from": "safe",
+      "to": "main",
+      "y": 364,
+      "label": "err = recovered: boom，正常返回",
+      "variant": "return"
+    },
+    {
+      "from": "main",
+      "to": "child",
+      "y": 430,
+      "label": "子 goroutine panic，主 recover 接不住",
+      "variant": "dashed"
+    },
+    {
+      "from": "child",
+      "to": "main",
+      "y": 486,
+      "label": "子 goroutine 内部自己 recover 兜住",
+      "variant": "return"
+    }
+  ],
+  "activations": [
+    {
+      "participant": "safe",
+      "from": 164,
+      "to": 380,
+      "type": "backend"
+    },
+    {
+      "participant": "fn",
+      "from": 192,
+      "to": 350,
+      "type": "backend"
+    },
+    {
+      "participant": "child",
+      "from": 414,
+      "to": 500,
+      "type": "messagebus"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "panic 传播规则",
+      "items": [
+        "panic 沿当前 goroutine 调用栈向上传播",
+        "途中逐层执行已注册的 defer",
+        "无人 recover → 打印栈回溯，exit 2"
+      ]
+    },
+    {
+      "dot": "orange",
+      "title": "recover 三个条件",
+      "items": [
+        "只在本 goroutine 生效",
+        "必须写在 defer 函数里，直接调用无效",
+        "无 panic 时返回 nil（返回后即消费）"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "跨 goroutine 铁律",
+      "items": [
+        "子 goroutine 的 panic 主 goroutine 接不住",
+        "每个可能 panic 的 goroutine 自己兜底",
+        "惯用法：defer + recover 转成 error 上报"
+      ]
+    }
+  ]
+}

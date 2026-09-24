@@ -1,0 +1,149 @@
+{
+  "schema_version": 1,
+  "diagram_type": "sequence",
+  "meta": {
+    "title": "栈与 runtime 信息：Stack 打印 / Goexit 触发 defer / goid 解析",
+    "output": "images/rtinfo.html",
+    "viewBox": [
+      1080,
+      580
+    ],
+    "quality_profile": "showcase",
+    "locale": "zh-CN",
+    "legend": {
+      "mode": "hidden"
+    }
+  },
+  "participants": [
+    {
+      "id": "main",
+      "type": "frontend",
+      "label": "main",
+      "sublabel": "调用方"
+    },
+    {
+      "id": "runtime",
+      "type": "messagebus",
+      "label": "runtime",
+      "sublabel": "Stack·Goexit"
+    },
+    {
+      "id": "worker",
+      "type": "backend",
+      "label": "worker",
+      "sublabel": "被提前结束"
+    }
+  ],
+  "segments": [
+    {
+      "from": 168,
+      "to": 264,
+      "label": "第一层：打印自己的栈"
+    },
+    {
+      "from": 292,
+      "to": 430,
+      "label": "第二层：Goexit 提前退出"
+    },
+    {
+      "from": 458,
+      "to": 526,
+      "label": "第三层：解析 goid"
+    }
+  ],
+  "messages": [
+    {
+      "from": "main",
+      "to": "runtime",
+      "y": 180,
+      "label": "Stack(buf, false)：当前栈写入缓冲区",
+      "variant": "emphasis"
+    },
+    {
+      "from": "runtime",
+      "to": "worker",
+      "y": 236,
+      "label": "返回首行 goroutine 1 [running] + 栈帧列表（地址每次不同）",
+      "variant": "return"
+    },
+    {
+      "from": "main",
+      "to": "worker",
+      "y": 304,
+      "label": "go worker(exited)：启动演示 goroutine",
+      "variant": "emphasis"
+    },
+    {
+      "from": "worker",
+      "to": "runtime",
+      "y": 348,
+      "label": "runtime.Goexit()：只结束当前 goroutine，不可 recover",
+      "variant": "emphasis"
+    },
+    {
+      "from": "runtime",
+      "to": "worker",
+      "y": 392,
+      "label": "逐个执行已注册的 defer（同 return 的清理路径）",
+      "variant": "dashed"
+    },
+    {
+      "from": "worker",
+      "to": "main",
+      "y": 424,
+      "label": "defer 中 close(exited)：清理完成，goroutine 栈被回收",
+      "variant": "dashed"
+    },
+    {
+      "from": "main",
+      "to": "runtime",
+      "y": 462,
+      "label": "对比：os.Exit 进程立即死，defer 不跑",
+      "variant": "dashed"
+    },
+    {
+      "from": "runtime",
+      "to": "main",
+      "y": 496,
+      "label": "解析栈首行得 goid——黑客手段，生产用 context 传身份",
+      "variant": "return"
+    }
+  ],
+  "activations": [
+    {
+      "participant": "worker",
+      "from": 306,
+      "to": 428,
+      "type": "backend"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "runtime.Stack 两种用法",
+      "items": [
+        "false：只 dump 当前 goroutine",
+        "true：dump 全部，排查泄漏常用",
+        "首行第二个字段就是 goid"
+      ]
+    },
+    {
+      "dot": "orange",
+      "title": "三种退出对比",
+      "items": [
+        "return：只退出当前函数",
+        "os.Exit：整个进程立即终止",
+        "Goexit：结束当前 goroutine，defer 照跑"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "goid 为什么不公开",
+      "items": [
+        "id 会复用，语义不稳定",
+        "没有公开 API 是刻意设计",
+        "给 goroutine 带身份用 context"
+      ]
+    }
+  ]
+}

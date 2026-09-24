@@ -1,0 +1,157 @@
+{
+  "schema_version": 1,
+  "diagram_type": "sequence",
+  "meta": {
+    "title": "context 取消传播：一次 cancel，整棵树同时收到 Done",
+    "output": "images/ctx.html",
+    "viewBox": [
+      1000,
+      560
+    ],
+    "quality_profile": "showcase",
+    "locale": "zh-CN",
+    "legend": {
+      "mode": "hidden"
+    }
+  },
+  "participants": [
+    {
+      "id": "parent",
+      "type": "frontend",
+      "label": "parent·main",
+      "sublabel": "main：握有取消权"
+    },
+    {
+      "id": "ctx",
+      "type": "messagebus",
+      "label": "context 树",
+      "sublabel": "Done · Err · Value"
+    },
+    {
+      "id": "child",
+      "type": "backend",
+      "label": "子 goroutine",
+      "sublabel": "select <-Done()"
+    },
+    {
+      "id": "grand",
+      "type": "backend",
+      "label": "孙 goroutine",
+      "sublabel": "共享同一 Done"
+    }
+  ],
+  "segments": [
+    {
+      "from": 140,
+      "to": 230,
+      "label": "① WithCancel：派生可取消 ctx，子监听 Done"
+    },
+    {
+      "from": 252,
+      "to": 342,
+      "label": "② cancel()：Done 关闭广播全树，子/孙退出"
+    },
+    {
+      "from": 364,
+      "to": 436,
+      "label": "③ WithTimeout 1.5s 到点自动 cancel"
+    },
+    {
+      "from": 458,
+      "to": 515,
+      "label": "④ WithValue 旁路 + WaitGroup 对账"
+    }
+  ],
+  "messages": [
+    {
+      "from": "parent",
+      "to": "ctx",
+      "y": 170,
+      "label": "WithCancel(Background)：拿到取消权",
+      "variant": "emphasis"
+    },
+    {
+      "from": "ctx",
+      "to": "child",
+      "y": 205,
+      "label": "子 goroutine select <-ctx.Done()：取消前一直阻塞",
+      "variant": "dashed"
+    },
+    {
+      "from": "parent",
+      "to": "ctx",
+      "y": 272,
+      "label": "cancel()：只需调用一次，信号沿树向下传播"
+    },
+    {
+      "from": "ctx",
+      "to": "child",
+      "y": 306,
+      "label": "Done 关闭：子收到 canceled，退出",
+      "variant": "emphasis"
+    },
+    {
+      "from": "ctx",
+      "to": "grand",
+      "y": 340,
+      "label": "孙的 Done 同时关闭，无需逐个通知",
+      "variant": "emphasis"
+    },
+    {
+      "from": "parent",
+      "to": "ctx",
+      "y": 374,
+      "label": "WithTimeout(1500ms)：到点自动 cancel"
+    },
+    {
+      "from": "ctx",
+      "to": "child",
+      "y": 412,
+      "label": "Err() = context.DeadlineExceeded：超时与手动取消可区分",
+      "variant": "dashed"
+    },
+    {
+      "from": "parent",
+      "to": "grand",
+      "y": 446,
+      "label": "WithValue(user=alice)：旁路数据"
+    },
+    {
+      "from": "child",
+      "to": "parent",
+      "y": 474,
+      "label": "wg.Done()：WaitGroup 归零对账",
+      "variant": "dashed"
+    }
+  ],
+  "activations": [],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "心智模型",
+      "items": [
+        "context 是单向广播树：取消只从父流向子",
+        "cancel/Done 是并发安全的，多次调用幂等",
+        "超时只是\"到点自动 cancel\"，语义与手动一致"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "经典陷阱",
+      "items": [
+        "忘记 defer cancel()：ctx 泄漏，子 goroutine 永远阻塞",
+        "拿 ctx.Value 传业务参数：它只放请求级元数据",
+        "自己写 goroutine+channel 模拟取消：不如 Done 一次广播"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "如何验证",
+      "items": [
+        "go run main.go：cancel 后子打印 context canceled 退出",
+        "1.5s 超时打断 3s 任务，耗时约 1500ms",
+        "第 4 节 WaitGroup 对账：子与孙都退出，程序不悬挂"
+      ]
+    }
+  ]
+}

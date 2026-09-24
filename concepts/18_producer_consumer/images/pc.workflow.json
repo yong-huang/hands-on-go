@@ -1,0 +1,207 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "多生产多消费：两级 WaitGroup 的优雅关闭",
+    "output": "images/pc.html",
+    "quality_profile": "showcase",
+    "locale": "zh-CN",
+    "legend": {
+      "mode": "hidden"
+    }
+  },
+  "lanes": [
+    {
+      "id": "produce",
+      "label": "生产侧"
+    },
+    {
+      "id": "channel",
+      "label": "任务通道"
+    },
+    {
+      "id": "consume",
+      "label": "消费侧"
+    },
+    {
+      "id": "close",
+      "label": "关闭与对账"
+    }
+  ],
+  "phases": [
+    {
+      "id": "send",
+      "label": "并发发送",
+      "fromCol": 0,
+      "toCol": 0
+    },
+    {
+      "id": "relay",
+      "label": "握手传递",
+      "fromCol": 1,
+      "toCol": 1
+    },
+    {
+      "id": "drain",
+      "label": "排空消费",
+      "fromCol": 2,
+      "toCol": 2
+    },
+    {
+      "id": "finish",
+      "label": "先等生产再关闭",
+      "fromCol": 3,
+      "toCol": 5
+    }
+  ],
+  "mainPath": [
+    "n_prods",
+    "n_tasks",
+    "n_cons",
+    "n_wgc",
+    "n_audit"
+  ],
+  "nodes": [
+    {
+      "id": "n_prods",
+      "lane": "produce",
+      "col": 0,
+      "type": "frontend",
+      "label": "3 个生产者 goroutine",
+      "sublabel": "各发 4 个任务 · 完成即 Done",
+      "tag": "wgProducers.Add(1)",
+      "width": 190
+    },
+    {
+      "id": "n_tasks",
+      "lane": "channel",
+      "col": 1,
+      "type": "messagebus",
+      "label": "tasks chan Task",
+      "sublabel": "无缓冲：发收逐个握手",
+      "tag": "谁有权 close？只有发送方",
+      "width": 170
+    },
+    {
+      "id": "n_cons",
+      "lane": "consume",
+      "col": 2,
+      "type": "backend",
+      "label": "2 个消费者 for range tasks",
+      "sublabel": "关闭并排空后自动结束",
+      "tag": "wgConsumers.Add(1)",
+      "width": 200
+    },
+    {
+      "id": "n_wgp",
+      "lane": "close",
+      "col": 3,
+      "type": "database",
+      "label": "wgProducers.Wait()",
+      "sublabel": "等到\"所有生产者发完\"",
+      "width": 180
+    },
+    {
+      "id": "n_close",
+      "lane": "close",
+      "col": 4,
+      "type": "security",
+      "label": "close(tasks)",
+      "sublabel": "由第三方收尾者负责关闭",
+      "tag": "关闭的通行证",
+      "width": 160
+    },
+    {
+      "id": "n_wgc",
+      "lane": "consume",
+      "col": 4,
+      "type": "database",
+      "label": "main：wgConsumers.Wait()",
+      "sublabel": "消费者退出蕴含生产者收尾",
+      "width": 190
+    },
+    {
+      "id": "n_audit",
+      "lane": "close",
+      "col": 5,
+      "type": "cloud",
+      "label": "对账：发送 12 == 接收 12",
+      "sublabel": "Mutex 保护按生产者计数",
+      "width": 180
+    }
+  ],
+  "edges": [
+    {
+      "id": "e_prod_chan",
+      "from": "n_prods",
+      "to": "n_tasks",
+      "label": "tasks <- t（发完即 Done）",
+      "variant": "emphasis"
+    },
+    {
+      "id": "e_chan_cons",
+      "from": "n_tasks",
+      "to": "n_cons",
+      "label": "t := range tasks 握手接收",
+      "variant": "emphasis"
+    },
+    {
+      "id": "e_cons_wgc",
+      "from": "n_cons",
+      "to": "n_wgc",
+      "label": "循环退出后 Done",
+      "variant": "dashed"
+    },
+    {
+      "id": "e_wgp_close",
+      "from": "n_wgp",
+      "to": "n_close",
+      "label": "计数归零才允许关闭",
+      "variant": "emphasis"
+    },
+    {
+      "id": "e_close_cons",
+      "from": "n_close",
+      "to": "n_cons",
+      "label": "关闭信号终结 for range",
+      "variant": "dashed",
+      "role": "branch"
+    },
+    {
+      "id": "e_wgc_audit",
+      "from": "n_wgc",
+      "to": "n_audit",
+      "label": "全部退出后对账",
+      "variant": "emphasis"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "心智模型",
+      "items": [
+        "两级 WaitGroup：生产侧、消费侧各管各的",
+        "close 是发送方\"再无发送\"的宣言",
+        "消费者 for range 直到关闭，排空即退"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "为什么消费者不能 close",
+      "items": [
+        "语义：close 属于发送方，消费者无权宣布",
+        "时机：早关会让在发的生产者 panic",
+        "验证：把 close 挪进消费者即可复现崩溃"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "如何验证",
+      "items": [
+        "go run main.go：12 发 12 收交错，顺序随机",
+        "对账行：发送 12 = 接收 12？true",
+        "末尾两行 [C] channel 已关闭，退出"
+      ]
+    }
+  ]
+}

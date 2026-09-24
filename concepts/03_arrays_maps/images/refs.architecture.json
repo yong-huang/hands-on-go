@@ -1,0 +1,142 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "数组 / 切片 / map：三种容器，三套语义",
+    "output": "images/refs.html",
+    "quality_profile": "showcase",
+    "locale": "zh-CN",
+    "legend": {
+      "mode": "hidden"
+    }
+  },
+  "components": [
+    {
+      "id": "n_arr",
+      "type": "database",
+      "label": "数组 [3]int",
+      "sublabel": "定长 · 值类型 · 赋值即整体拷贝",
+      "tag": "len==cap 固定",
+      "pos": [
+        80,
+        130
+      ],
+      "size": [
+        220,
+        70
+      ]
+    },
+    {
+      "id": "n_slice",
+      "type": "backend",
+      "label": "切片 []int",
+      "sublabel": "动态 · 引用头(指针+len+cap) · 共享底层数组",
+      "tag": "len≤cap 可伸缩",
+      "pos": [
+        400,
+        130
+      ],
+      "size": [
+        240,
+        70
+      ]
+    },
+    {
+      "id": "n_map",
+      "type": "frontend",
+      "label": "map[string]int",
+      "sublabel": "键值对 · 引用类型 · v,ok := m[k]",
+      "tag": "无序 · delete 删键",
+      "pos": [
+        740,
+        130
+      ],
+      "size": [
+        230,
+        70
+      ]
+    },
+    {
+      "id": "n_split",
+      "type": "security",
+      "label": "strings.Fields 切词",
+      "sublabel": "文本 → 单词切片",
+      "pos": [
+        400,
+        300
+      ],
+      "size": [
+        240,
+        66
+      ]
+    },
+    {
+      "id": "n_count",
+      "type": "messagebus",
+      "label": "counts[w]++ 词频统计",
+      "sublabel": "键不存在得零值 0，再 +1",
+      "tag": "验收核心",
+      "pos": [
+        400,
+        460
+      ],
+      "size": [
+        240,
+        66
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "from": "n_arr",
+      "to": "n_slice",
+      "label": "s[:] 切出视图"
+    },
+    {
+      "from": "n_slice",
+      "to": "n_split",
+      "variant": "emphasis",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "from": "n_split",
+      "to": "n_count",
+      "variant": "emphasis"
+    },
+    {
+      "from": "n_map",
+      "to": "n_count",
+      "label": "词→次数"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "心智模型",
+      "items": [
+        "数组是值：b := a 复制整个数组，改 b 不影响 a",
+        "切片是引用：b := a 复制切片头，两者共享底层数组",
+        "map 是引用：键值容器，遍历无序，键不存在返回零值"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "经典陷阱",
+      "items": [
+        "append 超过 cap 会换底层数组：旧切片看不到新元素",
+        "两个切片共享底层数组，改一个另一个跟着变",
+        "m[k] 取不存在的键不报错，返回零值——判存在要用 v, ok := m[k]"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "如何验证",
+      "items": [
+        "go run main.go 看 §1/§2 的地址与拷贝对比输出",
+        "§3 观察 append 前后 len/cap 变化：3→6 的扩容搬家",
+        "§5 词频统计输出：10 个单词、5 个不同词"
+      ]
+    }
+  ]
+}

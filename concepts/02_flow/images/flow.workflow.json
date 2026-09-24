@@ -1,0 +1,217 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "FizzBuzz 判定流：for 循环 × 无表达式 switch",
+    "output": "images/flow.html",
+    "quality_profile": "showcase",
+    "locale": "zh-CN",
+    "legend": {
+      "mode": "hidden"
+    }
+  },
+  "lanes": [
+    {
+      "id": "loop",
+      "label": "for 循环"
+    },
+    {
+      "id": "decide",
+      "label": "switch 判定树"
+    },
+    {
+      "id": "output",
+      "label": "本轮输出"
+    }
+  ],
+  "phases": [
+    {
+      "id": "iterate",
+      "label": "逐轮迭代",
+      "fromCol": 0,
+      "toCol": 1
+    },
+    {
+      "id": "branch",
+      "label": "自上而下短路",
+      "fromCol": 2,
+      "toCol": 4
+    },
+    {
+      "id": "emit",
+      "label": "收束输出",
+      "fromCol": 5,
+      "toCol": 5
+    }
+  ],
+  "mainPath": [
+    "n_for",
+    "n_switch",
+    "n_c15",
+    "n_c3",
+    "n_c5",
+    "n_default",
+    "n_out"
+  ],
+  "nodes": [
+    {
+      "id": "n_for",
+      "lane": "loop",
+      "col": 0,
+      "type": "external",
+      "label": "for i := 1; i <= 15; i++",
+      "sublabel": "另有 while 式 / for range",
+      "width": 172
+    },
+    {
+      "id": "n_if",
+      "lane": "loop",
+      "col": 4,
+      "type": "frontend",
+      "label": "if r := i % 3; r == 0",
+      "sublabel": "r 仅 if/else 内可见",
+      "tag": "作用域最小化",
+      "width": 150
+    },
+    {
+      "id": "n_switch",
+      "lane": "decide",
+      "col": 1,
+      "type": "backend",
+      "label": "switch { 无表达式 }",
+      "sublabel": "case 自上而下取首个 true",
+      "width": 140
+    },
+    {
+      "id": "n_c15",
+      "lane": "decide",
+      "col": 2,
+      "type": "messagebus",
+      "label": "case i%15 == 0",
+      "sublabel": "→ \"FizzBuzz\"",
+      "tag": "最先判·互斥",
+      "width": 130
+    },
+    {
+      "id": "n_c3",
+      "lane": "decide",
+      "col": 3,
+      "type": "messagebus",
+      "label": "case i%3 == 0",
+      "sublabel": "→ \"Fizz\"",
+      "width": 150
+    },
+    {
+      "id": "n_c5",
+      "lane": "decide",
+      "col": 4,
+      "type": "messagebus",
+      "label": "case i%5 == 0",
+      "sublabel": "→ \"Buzz\"",
+      "width": 150
+    },
+    {
+      "id": "n_default",
+      "lane": "decide",
+      "col": 5,
+      "type": "database",
+      "label": "default",
+      "sublabel": "→ fmt.Sprint(i)",
+      "width": 140,
+      "tag": "其余数字"
+    },
+    {
+      "id": "n_out",
+      "lane": "output",
+      "col": 5,
+      "type": "cloud",
+      "label": "i++ · 直到 i > 15",
+      "sublabel": "strings.Join(results) 输出 15 项",
+      "width": 170
+    }
+  ],
+  "edges": [
+    {
+      "id": "e_for_switch",
+      "from": "n_for",
+      "to": "n_switch",
+      "label": "每轮 i 进入判定",
+      "variant": "emphasis"
+    },
+    {
+      "id": "e_for_if",
+      "from": "n_for",
+      "to": "n_if",
+      "variant": "dashed",
+      "role": "branch"
+    },
+    {
+      "id": "e_sw_c15",
+      "from": "n_switch",
+      "to": "n_c15",
+      "label": "首个 true?",
+      "variant": "emphasis"
+    },
+    {
+      "id": "e_c15_c3",
+      "from": "n_c15",
+      "to": "n_c3",
+      "label": "false"
+    },
+    {
+      "id": "e_c3_c5",
+      "from": "n_c3",
+      "to": "n_c5",
+      "label": "false"
+    },
+    {
+      "id": "e_c5_def",
+      "from": "n_c5",
+      "to": "n_default",
+      "label": "false"
+    },
+    {
+      "id": "e_def_out",
+      "from": "n_default",
+      "to": "n_out",
+      "label": "本轮结果确定"
+    },
+    {
+      "id": "e_out_for",
+      "from": "n_out",
+      "to": "n_for",
+      "variant": "dashed",
+      "role": "return",
+      "route": "return-left"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "心智模型",
+      "items": [
+        "for 是 Go 唯一的循环关键字，三种形态全靠写法变化",
+        "无表达式 switch 等价于整洁的 if-else 链，自上而下短路",
+        "if/switch 的初始化语句把变量作用域压到最小"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "经典陷阱",
+      "items": [
+        "i%15==0 必须放在最前：被 %3 先命中就永远轮不到 FizzBuzz",
+        "case 默认不穿透，要穿透必须显式写 fallthrough",
+        "if r := i % 3; r == 0 的 r 在 if 之外不可见，外部引用即编译错"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "如何验证",
+      "items": [
+        "go run main.go 第 1 节输出 1 2 Fizz 4 Buzz … 14 FizzBuzz",
+        "第 3 节对照 r 的值：i=3 命中 Fizz，i=1、i=2 原样输出",
+        "第 4 节 switch 带初始化语句：n%5 先定型，再进分支"
+      ]
+    }
+  ]
+}
