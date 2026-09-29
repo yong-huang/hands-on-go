@@ -1,27 +1,51 @@
 # 07 · Goroutine 栈：2KB 起步、按需翻倍、彼此隔离
 
-> goroutine 最重要的两个内存事实是"可扩容的独立栈"与"栈隔离"，但 Go 1.26 已封禁对 `runtime.getg`/`runtime.allgs` 的 `//go:linkname` 链接，无法再直读 `g.stack.lo/hi`。本实验改用纯受支持的官方接口——`runtime.Stack` 解析 goid、`unsafe` 读帧 SP、`runtime.MemStats.StackInuse` 观察栈内存总量——把"栈从 2KB 起步、不够就翻倍、每个 goroutine 各占一段"变成看得见的数据。
+> 用三种官方支持的观测手段，把 goroutine（Go 运行时调度的并发执行单元）栈的核心事实变成看得见的数据：初始约 2KB、不够自动翻倍、每个并发单元各占一段独立栈。读完你将掌握 goid 获取、栈生长方向验证、扩容台阶与并发隔离的完整实测方法。
 
-## 1. 为什么需要它
+## Background
 
-"一个进程开几十万 goroutine"靠的是什么？答案就三个词：**栈小（初始 ~2KB，对比线程固定 MB 级）、可扩（runtime 自动翻倍）、隔离（每个 goroutine 一段独立栈）**。但这些结论通常只是被背诵；本实验在内部符号被封禁的时代背景下，用官方支持的手段把它们逐一实测出来：goid 有独立编号、栈向低地址生长、深递归触发台阶式扩容、N 个并发栈内存线性叠加。
+操作系统线程是最早通用的并发执行单元，创建时必须预分配一段固定大小的调用栈（保存函数参数、局部变量与返回地址的内存区域），常见配置在 MB 量级。栈给小了深调用会溢出，给大了大多数时间用不满——线程模型里这个大小只能创建时一次性拍板。
 
-## 2. 总览：核心机制一图看懂
+痛点在并发数上去之后显现：几十万个线程意味着几十万段 MB 级内存，仅栈就到上百 GB 量级。用"每个连接、每个请求一个执行流"的方式承载海量轻量任务，在线程模型下内存成本不可接受。
 
-![goroutine 栈生命周期：2KB 起步，stackguard 触发 copystack 翻倍扩容](images/stack.svg)
+Go 运行时给出的解法：给每个并发单元一段很小的初始栈（约 2KB），运行时检测到不够用时自动换一段更大的。观测层面还有一个时代背景——Go 1.26 封禁了对 `runtime.getg`/`runtime.allgs` 的 `//go:linkname` 链接，直读内部结构体已成历史，本实验全程改用官方支持接口。
 
-> 🌐 **交互版**：[在线打开（GitHub Pages）](https://<user>.github.io/<repo>/internals/07_goroutine/images/stack.html)
-> （或本地打开 [`images/stack.html`](images/stack.html)）。
+## What
 
-**心智模型一句话**：goroutine 的栈不是固定大小，而是一段"随用随长"的内存——每次函数调用的序言都会拿 SP 与 stackguard 比较，越界就触发 `morestack`→`copystack`：按 2 倍分配新栈、拷贝全部旧帧、重定位指针，全程用户无感知；栈利用率过低时 GC 还会反向收缩归还内存。
+goroutine 的栈是运行时为每个并发单元单独分配的调用栈：初始约 2KB，不够用时整栈扩容到两倍，多个栈之间互不共享。它是运行时自动管理的内存，与用户手动分配释放的堆内存相对。
 
-## 3. 快速开始
+可以把 goroutine 的栈想象成一间"按需扩建的独立小屋"：住不下时 runtime 整体搬到一间两倍大的新屋，全部家具（栈帧）原样搬走；但和真实搬家不同的是，搬迁瞬时完成、住户（正在执行的函数）毫无感知，而且住得太空时还会主动退租缩回小屋。
+
+一句话心智模型：栈不是固定大小，而是一段"随用随长"的内存。每次函数调用的序言都拿 SP（栈顶指针）与 stackguard（栈顶预留的警戒阈值）比较，越界就触发 `morestack`→`copystack` 扩容；栈利用率过低时 GC（垃圾回收器）还会反向收缩归还内存。
+
+## When to Use
+
+**在估算服务的并发容量时**。知道"每个并发单元初始 ~2KB、深调用才翻倍"，就能从内存角度评估几十万并发是否可行，而不是凭感觉。
+
+**在排查内存上涨、怀疑深递归或超大局部变量时**。读 `MemStats.StackInuse`（全部 goroutine 栈内存的总量字段），判断增长来自栈还是堆。
+
+**在诊断个别 goroutine 时**。`runtime.Stack` 能拿到编号与调用栈文本，是排查泄漏、卡在哪个函数的标准入口。
+
+何时不用：
+
+- 并发量小、没有深递归、没有超大局部变量时，栈不是关注点，无需观测。
+- 需要单个 goroutine 的精确栈大小时，官方接口只提供总量口径，只能用差分方法近似。
+
+| 方案 | 差异 | 什么时候选它 |
+|---|---|---|
+| OS 线程 | 栈固定 MB 量级，由内核调度，创建与切换成本高 | 少量计算密集任务，或需要内核级线程语义 |
+| goroutine | 栈 ~2KB 起步按需翻倍，运行时在用户态调度 | 海量轻量并发，尤其每个连接/请求一个执行流 |
+| 回调/事件循环 | 没有独立栈，上下文靠闭包与状态机保存 | 已有事件驱动框架、能接受回调风格时 |
+
+## Quick Start
+
+前置条件：已安装 Go（`//go:linkname` 封禁行为在 go1.26 实测）；绘制数据图需要 python3（可选）。
 
 ```bash
 cd internals/07_goroutine
 go run main.go          # 文本演示：goid → 栈向下生长 → 扩容台阶 → 并发隔离
 go run main.go -json    # 输出 JSON 状态快照（growth/baseline/goroutines）
-python3 viz.py          # 数据图：生成 images/growth.png 与 images/isolation.png
+python3 viz.py          # 读 -json 快照绘制数据图
 ```
 
 预期输出（节选，地址与 KB 数值每次运行略有波动）：
@@ -45,33 +69,36 @@ depth=256  StackInuse=2272 KB   ← 平台期：栈已够用，扩容停止
 
 每一步"在看什么"都写在 `main.go` 的注释里；`-json` 快照给出与文本演示一致的机器可读数值。
 
-## 4. 核心概念
+## How It Works
 
-### 4.1 goid：官方获取方式
+### goid：官方获取方式
 
-直读 `runtime.allgs` 已被编译器封禁，代码改解析 `runtime.Stack` 输出的第一行 `goroutine N [...]`：主 goroutine 是 1，子 goroutine 每次运行编号不同（实测 19/21）。独立编号为"隔离"实验提供了身份视角。
+`runtime.Stack(buf, false)` 返回当前 goroutine 的调用栈文本，第一行形如 `goroutine N [...]`，解析这个 N 就是 goid（goroutine 的独立编号）。主 goroutine 恒为 1，子 goroutine 每次运行编号不同（实测 19/21）。
 
-### 4.2 栈向下生长
+你在 Quick Start 输出里看到的"主 goroutine: goid = 1 / 子 goroutine: goid = 19"，就来自这里的第一行解析。独立编号为"栈隔离"实验提供了身份视角。
 
-用 `//go:noinline` 阻止内联，取局部变量地址作为帧内 SP 探针：内层帧的 SP（0x…7df7）比外层（0x…7e67）低 0x70 字节——调用层级越深地址越低，栈向低地址方向生长。
+### 栈向低地址生长
 
-### 4.3 深递归逼出扩容台阶
+用 `//go:noinline`（禁止编译器内联的编译指令）阻止函数被优化合并，取局部变量地址作为帧内 SP 探针。实测内层帧 SP（0x…7df7）比外层（0x…7e67）低 0x70 字节：调用层级越深地址越低，栈向低地址方向生长。
 
-每个递归帧压入 `[4096]byte` 局部数组把栈撑爆，触发 runtime 整体复制换新栈。`stackKB()` 每 64 层记录一次 `StackInuse`，得到台阶曲线：
+输出里 `inner 帧 SP` 与 `当前帧 SP` 两行的先后关系，就是这一机制的直接证据。
 
-![深递归时 StackInuse 台阶式增长（数据图）](images/growth.png)
+### 深递归逼出扩容台阶
 
-怎么看：绿色柱是扩容台阶（+480/+512/+1024 KB），灰色是平台期——**扩容只发生在"不够"的那一刻，之后自动停止**。注意 depth=0 时 StackInuse 已有 ~256 KB，这是全部 goroutine（含 runtime 自身）的总和，单个 goroutine 的初始栈仍是 ~2KB。
+每个递归帧压入 `[4096]byte` 局部数组把栈撑爆，触发 runtime 整栈复制换新栈。`stackKB()` 每 64 层记录一次 `StackInuse`，得到台阶曲线：+480/+512/+1024 KB 三级台阶后进入平台期（2272 KB 不再增长）——扩容只发生在"不够"的那一刻，之后自动停止。
 
-### 4.4 栈隔离：总量随 N 线性叠加
+两个口径细节：
 
-让 1/2/4 个 goroutine 同时深递归到第 300 层并上报 `StackInuse`：
+- depth=0 时 StackInuse 已有 ~256 KB，这是全部 goroutine（含 runtime 自身）的总和；单个 goroutine 的初始栈仍是 ~2KB。
+- 输出里"基线 2272 KB 大于递归前 256 KB"也是真实读数：翻倍过的栈虽不再使用，但尚未被 shrinkstack（GC 的栈收缩例程）归还，两个数口径不同。
 
-![N 个并发深递归的栈总量线性叠加（数据图）](images/isolation.png)
+### 栈隔离：总量随 N 线性叠加
 
-红色虚线是"基线 + N × 单栈增量"的参考线，实测柱子（4320/6368/10496 KB）恰好贴合——每个并发 goroutine 各占一段独立栈，互不共享，这正是"轻量并发"的底气。
+让 1/2/4 个 goroutine 同时深递归到第 300 层并上报 StackInuse。实测 4320/6368/10496 KB，恰好贴合"基线 + N × 单栈增量"参考线——每个并发 goroutine 各占一段独立栈、独立扩容、互不共享。
 
-## 5. 关键字段与坑清单
+Quick Start 输出里"1 个并发 +2048 KB、4 个并发每个约 +2056 KB"的两组数，就是这条线性关系的采样点。这正是"轻量并发"的内存底气。
+
+### 关键字段与观测手段
 
 | 字段/手段 | 含义 | 为什么重要 |
 |---|---|---|
@@ -81,47 +108,20 @@ depth=256  StackInuse=2272 KB   ← 平台期：栈已够用，扩容停止
 | `copystack` | 整栈复制换新 | 旧栈指针全部重定位，对用户透明 |
 | `//go:noinline` | 禁止内联 | 没有它递归被优化掉，台阶曲线不会出现 |
 
+## Pitfalls & Q&A
+
 坑清单：
 
-- `//go:linkname` 直读 `runtime.getg`/`runtime.allgs` 在 Go 1.26 会链接失败——只能用 `runtime.Stack`/`MemStats` 间接观测
-- `StackInuse` 是所有 goroutine 之和，观察单个 goroutine 会被运行时开销污染；程序用"每 64 层记录一次"与"N 倍差分"剥离噪声
-- 递归函数必须 `//go:noinline` 且帧里压 `[4096]byte` 数组，否则编译器复用栈帧，栈根本不会扩容
-- KB 数值每次运行有波动（如 depth=0 一回 256、一回 224），比数值更重要的是"台阶 + 平台期"的形状
-
-## 6. 文件结构
-
-```text
-internals/07_goroutine/
-├── README.md                        # 本文件：原理 + 运行指引 + 深入要点
-├── main.go                          # 主教材：goid → 栈向下生长 → 扩容台阶 → 并发隔离（-json 输出快照）
-├── viz.py                           # 数据图脚本：读 -json 快照画 growth/isolation 两张 PNG
-└── images/
-    ├── stack.lifecycle.json         # 图源：栈生命周期状态机（Typed JSON IR）
-    ├── stack.html                   # 交互版：可缩放/高亮连线的自包含页面
-    ├── stack.svg                    # README 内嵌双主题矢量图
-    ├── growth.png                   # 数据图：StackInuse 台阶式增长（matplotlib 实测绘制）
-    └── isolation.png                # 数据图：N 个并发栈总量线性叠加（matplotlib 实测绘制）
-```
-
-## 7. 深入要点
+- **`//go:linkname`（绕过包私有性直接链接符号的编译指令）直读 `runtime.getg`/`runtime.allgs` 链接失败**。原因：Go 1.26 起编译器封禁了对 runtime 内部符号的链接。解法：改用 `runtime.Stack` 解析 goid、`MemStats.StackInuse` 观测总量，都是受支持的官方接口。
+- **观察单个 goroutine 的栈读数被污染**。原因：`StackInuse` 是所有 goroutine 之和，含 runtime 自身开销。解法：用"每 64 层记录一次"与"N 倍差分"剥离噪声。
+- **递归不扩容，台阶曲线不出现**。原因：编译器内联后复用栈帧，栈根本不会不够用。解法：递归函数加 `//go:noinline`，且帧里压 `[4096]byte` 数组。
+- **KB 数值每次运行有波动**（如 depth=0 一回 256、一回 224）。原因：runtime 自身开销随运行抖动。解法：比绝对数值更重要的是"台阶 + 平台期"的形状。
 
 **Q：goroutine 初始栈多大？为什么这么设计？**
 A：约 2KB（线程固定 MB 级）。小栈让"开几十万 goroutine"的内存成本可接受；不够用时由 runtime 的 `morestack`/`copystack` 自动翻倍扩容，用户零配置。
 
-**Q：栈扩容是怎么触发的？对正在运行的函数有影响吗？**
-A：每次函数调用序言会比较 SP 与 stackguard，越界则分配 2 倍新栈、拷贝全部旧帧并重定位指针（copystack）。正在运行的函数无感知，地址类指针由运行时统一改写。
-
-**Q：为什么本实验读不到 `g.stack.lo/hi`？**
-A：Go 1.26 封禁了对 runtime 内部符号的 `//go:linkname`。替代方案：`runtime.Stack` 解析 goid、`MemStats.StackInuse` 观测栈总量——都是受支持的官方接口。
-
 **Q：多个 goroutine 的栈会互相覆盖吗？**
-A：不会。实测 1/2/4 个并发深递归，StackInuse 按"基线 + N×单栈增量"线性叠加（4320/6368/10496 KB），每段栈独立分配、独立扩容。
+A：不会。每段栈独立分配、独立扩容，实测线性叠加数据见上文 How It Works 的"栈隔离"小节。
 
 **Q：栈会变小吗？**
 A：会。GC 在栈利用率过低时触发 shrinkstack 收缩归还内存，所以长驻 goroutine 不会因历史峰值永久占内存。
-
-## 8. 总结
-
-goroutine 的轻量不是玄学：**初始 ~2KB、不够自动翻倍、彼此完全隔离**，三件事在本实验里分别对应 goid/SP 探针/StackInuse 台阶与线性叠加四组实测数据。栈扩容对用户完全透明，这正是 Go 敢把"并发单元"做得比线程小三个量级的底气。
-
-下一篇 [08_mutex](../08_mutex/) 继续深入 runtime：`sync.Mutex` 的 state 字段如何用 1 个 int32 同时表达"锁着没有、谁在等、是否饥饿"。

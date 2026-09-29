@@ -1,31 +1,62 @@
 # 19 · 系统调用与阻塞 I/O：M 是怎么涨起来的
 
-> `GOMAXPROCS` 定住的是 P 的数量，但 **OS 线程 M 可以比 P 多**。什么时候多？当 goroutine 阻塞在**真实系统调用**上时。本实验用 8 个 goroutine 同时抢一把 `flock` 文件锁，亲眼看到 M 从 5 涨到 11，远超 `GOMAXPROCS=2`；锁释放后线程也不回落——这是理解"文件 I/O 费线程、网络 I/O 不费线程"的最小可复现实验。
+> `GOMAXPROCS` 定住的是 P（逻辑处理器）的数量，但 OS 线程 M 可以比 P 多——只要 goroutine 阻塞在真实系统调用（陷入内核的服务请求）上。
+>
+> 本实验用 8 个 goroutine 抢一把 `flock` 文件锁，实测 M 从 5 涨到 11、锁释放后不回落；读完你将能解释并复现"文件 I/O 费线程、网络 I/O 不费线程"这条分界线。
 
-## 1. 为什么需要它
+## Background
 
-写服务的人都知道 `GOMAXPROCS` 控制"并行度"，于是容易默认"线程数 ≈ GOMAXPROCS"。但 Go 调度器的账本上，P 只限制**同时执行 Go 代码**的并行度，M（OS 线程）是另一种资源：一旦某个 G 陷入**真正阻塞的系统调用**（文件读写、`flock`、部分 DB 驱动的原生调用、`syscall.Exec`），执行它的 M 会被扣在内核里回不来，调度器只能另找或新建 M 来跑剩下的 G——线程数就这样冲出 `GOMAXPROCS`。
+运维 Go 服务时，`GOMAXPROCS`（控制并行度的 Go 环境变量）常被当成"线程数旋钮"：设成 CPU 核数或容器配额，然后默认线程数也约等于它。多数时候这个近似成立，监控面板上的线程数长期贴着它不动。
 
-反过来，网络连接百万却几乎不涨线程，靠的不是运气，而是 netpoller（kqueue/epoll）把"看起来阻塞"的 socket 读写变成了非阻塞等待。分清这两类 I/O，是排查"线程数为什么失控"的前提。程序演示四件事：8 个 worker 卡文件锁、G/M 数随阶段变化、锁释放后 M 的去向、以及"为什么 `time.Sleep` 和网络 I/O 复现不了这个现象"。
+撞墙发生在 I/O 密集路径上。某个 goroutine 卡进一次真正阻塞的文件读写、`flock` 或数据库驱动原生调用时，执行它的 OS 线程会被扣在内核里回不来。
 
-## 2. 总览：核心机制一图看懂
+调度器（Go 运行时里给 goroutine 分配线程的组件）只能再找或新建线程来跑其余 goroutine——线程数就此冲出 `GOMAXPROCS`。
 
-![阻塞 syscall 时间线：M 蹲守内核，P 被移交，返回后取回或休眠](images/syscall.svg)
+更迷惑的是反例：网络连接数上百万，线程数却几乎不动。分清哪类 I/O 费线程、哪类不费，是排查线程数失控的前提。本实验把这条分界线压缩成最小场景——8 个 worker（干活的 goroutine）抢一把文件锁，全程打印计数。
 
-> 🌐 **交互版**：[在线打开（GitHub Pages）](https://<user>.github.io/<repo>/internals/19_syscall/images/syscall.html)
-> （或本地打开 [`images/syscall.html`](images/syscall.html)）。
+## What
 
-**心智模型一句话**：M 陷入阻塞 syscall 后就"人票分离"——M 留在内核里蹲守，P 被 sysmon 收走交给空闲（或新建的）M 继续跑别的 G；syscall 返回后原来的 M 尝试取回一个空闲 P，取不到就休眠入池。
+**定义**：本篇主题是 Go 调度器对阻塞系统调用的处理机制：G（goroutine，下文简称 G）陷入内核时，runtime 把它占着的 P 收走交给别人用，M 留在内核里等系统调用返回。G/M/P 是 Go 调度模型的三个角色——G 是执行体，M 是 OS 线程，P 是调度槽位。
 
-## 3. 快速开始
+**心智模型**：可以把 M 和 P 想象成"人与入场券"：M 是干活的人，P 是进场资格。人钻进后台干长活（阻塞在内核里），资格会被收走转给候补的人；干完活回来的人先试着领回一张票，领不到就去休息室睡觉。
+
+但和真实抢票不同的是：休息室里的人不会被清退——M 不会被销毁，只会休眠待复用，线程数因此呈"峰值保留"。这正是后文输出里 after-release 阶段线程停在 11 的原因。
+
+## When to Use
+
+这套知识在三类时刻派上用场：
+
+- 排查线程数告警时：容器线程数持续上涨而 `GOMAXPROCS` 没变，先怀疑有 goroutine 卡在真实阻塞调用上（文件 I/O、`flock`、部分 DB 驱动的原生调用、`syscall.Exec`）
+- 给文件处理服务做容量评估时：每个阻塞在文件锁或磁盘调用上的 worker 实际占掉一个 OS 线程，预算要按阻塞并发数估，不能按 `GOMAXPROCS` 估
+- 评审高并发网络服务的资源模型时：百万级长连接几乎不吃线程，依据是网络 I/O 走非阻塞 fd（文件描述符，进程持有连接的句柄）+ netpoller（网络轮询器，基于 kqueue/epoll 的事件机制）
+
+什么时候不用：
+
+- 纯网络服务没有这个问题：socket（网络连接端点）读写不占住线程，无需按本篇扩线程预算
+- `time.Sleep`、channel 等待这类"暂停"也不属于此类——它们挂起 G 却归还 M
+- 阻塞调用偶发且极短时，线程数只会小幅波动，不必为此改造代码
+
+同类方案对比：
+
+| 方案 | 差异 | 什么时候选它 |
+|---|---|---|
+| 网络 I/O（netpoller） | 非阻塞等待，G 睡在 poller 里，M 不被占用 | 高并发连接场景的默认选择 |
+| `time.Sleep` / timer | G 被 timer 挂起，M 归还空闲池 | 定时等待，但复现不了线程暴涨 |
+| 真实阻塞 syscall（`flock`、文件读写） | M 被扣在内核里，P 被移交，线程数可超 `GOMAXPROCS` | 确需文件锁或原生阻塞调用时；本实验用它复现 |
+
+## Quick Start
+
+前置条件：仓库根目录下装有 Go 即可，无其他依赖。
 
 ```bash
 cd internals/19_syscall
 go run main.go          # 文本演示：五个阶段的 G/M/卡锁 worker 计数
-go run main.go -json    # 输出 JSON 快照，供 viz.py 画图
+go run main.go -json    # 输出 JSON 快照（供程序化读取）
 ```
 
-预期输出（本机实测，darwin/arm64，go1.26.5）：
+程序依次经过五个阶段：baseline（基线）→ start → blocked-8（8 个 worker 卡上文件锁）→ blocked+（持续阻塞）→ after-release（释放锁）。
+
+预期输出（go1.26.5 实测）：
 
 ```text
  阶段            G数   M(累计线程)  新增线程  卡锁worker
@@ -38,35 +69,45 @@ go run main.go -json    # 输出 JSON 快照，供 viz.py 画图
 GOMAXPROCS=2，但 8 个 worker 同时阻塞在 flock → M 撑到 11
 ```
 
-数据漂移标注：`M` 列来自 `threadcreate` profile，是**累计创建的线程数**。基线 5 与增量 +6 是一次实测值，会随机器、平台与 Go 版本浮动（比如基线可能是 4 或 6）；但"阻塞期线程远超 GOMAXPROCS、释放锁后不回落"这两个定性结论在任何平台都稳定复现。
+`M` 列来自 `threadcreate` profile（runtime 记录线程创建事件的采样数据），是**累计创建的线程数**。基线 5 与增量 +6 是一次实测值，随机器、平台与 Go 版本浮动（基线可能是 4 或 6）。
 
-## 4. 核心概念
+但"阻塞期线程远超 `GOMAXPROCS`、释放锁后不回落"这两个定性结论，在任何平台都稳定复现。
 
-### 4.1 handoff：P 为什么必须离开 M
+读表先看三格：blocked-8 行 M 列 11（新增 6）、卡锁worker 列 8（JSON 字段名 waiting）；after-release 行 G 回落 1，M 仍停 11。这三格就是下文机制小节要解释的全部现象。
 
-G 调用 `syscall.Flock` 后进入 `_Gsyscall` 状态，M 带着它一起陷入内核。此时最贵的资源不是 M，而是 **P**：P 手里攥着本地 runq、mcache，被一个"短时间回不来"的 M 握着，整个调度槽位就空转。runtime 的 sysmon 线程周期性巡检，发现某 P 停在 syscall 里太久，就执行 handoff——把 P 从该 M 手里收走。P 的下家按优先级找：有空闲 M 就唤醒，没有就**新建一个 OS 线程**（这就是线程数的增量来源）。
+## How It Works
 
-### 4.2 syscall 返回后：取回 P，否则休眠
+### handoff：P 为什么必须离开 M
 
-锁释放、`flock` 返回后，M 并不会"迷路"：`exitsyscall` 先尝试快速路径，从全局空闲 P 列表 `pidleget` 取回一个 P，取到就立刻继续跑 G；取不到（比如别的 M 正占着全部 P）就走慢路径，把 G 放回全局队列，自己 `stopm` **休眠进空闲 M 池**。注意实测 `after-release` 阶段线程数仍是 11——**M 不会被销毁**，只是睡着待复用，所以线程数是"峰值保留"的。
+G 调用 `syscall.Flock` 后进入 `_Gsyscall` 状态（G 生命周期里表示"卡在 syscall 中"的状态），M 带着它一起陷入内核。
 
-### 4.3 实测数据怎么看
+此时最贵的资源不是 M，而是 P：P 手里攥着本地 runq（待运行 G 的队列）和 mcache（每 P 一份的内存分配缓存），被一个短时间回不来的 M 握着，整个调度槽位就空转了。
 
-![真实阻塞 syscall（flock）时 M 暴增，超过 GOMAXPROCS](images/syscall_threads.png)
+runtime 的 sysmon（后台监控线程，周期巡检全局状态）发现某 P 停在 syscall 里太久，就执行 handoff（移交）：把 P 从该 M 手里收走。P 的下家按优先级找——有空闲 M 就唤醒，没有就**新建一个 OS 线程**。
 
-上图是五个阶段的 G 数与累计线程数：`blocked-8` 起线程从 5 跳到 11（+6），远超 GOMAXPROCS=2 的虚线；`after-release` 阶段 G 回落到 1，线程却停在 11 不动。下图把"卡锁 worker 数"与"新增线程数"并排：阻塞期两者同峰（8 卡锁 / +6 线程），释放后同时清零/停涨。
+Quick Start 输出里 blocked-8 阶段"新增线程 6"，就来自这里。
 
-![每个躺在 syscall 里的 G 都会占掉一个 M，直到锁释放](images/syscall_waiting.png)
+### syscall 返回后：取回 P，否则休眠
 
-为什么 8 个阻塞 worker 只 +6？因为线程账面增量 = **新建**的 M 数，而调度器会先复用空闲 M 池里已有的线程，基线那 5 个里的一部分被直接派去接 P——所以差值不恒等于 worker 数 8，别把它当公式背。
+锁释放、`flock` 返回后，M 并不会"迷路"：`exitsyscall`（runtime 的 syscall 出口）先走快速路径，用 `pidleget` 从全局空闲 P 列表取回一个 P，取到就立刻继续跑 G。
 
-### 4.4 对照组：netpoller 为什么不涨线程
+取不到（比如别的 M 正占着全部 P）就走慢路径：把 G 放回全局队列，自己 `stopm` **休眠进空闲 M 池**。对照输出里 after-release 阶段 M 仍是 11——M 不被销毁，只是睡着待复用，与 What 节"峰值保留"的失效边界互相印证。
 
-网络 I/O 走的是**非阻塞 fd + netpoller**（macOS 是 kqueue，Linux 是 epoll）：socket 永远不真正阻塞线程，G 被挂在 poller 里睡，M 完全空闲、转身就能从 runq 领下一个 G。`time.Sleep` 同理——G 被 timer 挂起，M 归还空闲池。所以想复现"M 暴涨"，必须用**真正阻塞的系统调用**，`flock` 是最顺手的一个。
+### 怎么读五个阶段的数字
 
-## 5. 关键字段与坑清单
+blocked-8 起 M 从 5 跳到 11（+6），远超 `GOMAXPROCS=2`；after-release 阶段 G 回落到 1，M 停在 11 不动。阻塞期"卡锁 worker 8 / 新增线程 6"同峰，释放后一个清零、一个停涨，因果对照就在这两列之间。
 
-`main.go` 里 snapshot 结构的五个字段：
+为什么 8 个阻塞 worker 只新增 6 个线程？因为账面增量是**新建**的 M 数，而调度器会先复用空闲 M 池里已有的线程——基线那 5 个中的一部分被直接派去接 P。差值不恒等于 worker 数，别把它当公式背。
+
+### 对照组：netpoller 为什么不涨线程
+
+网络 I/O 走的是非阻塞 fd + netpoller（macOS 用 kqueue，Linux 用 epoll）：socket 永不真正阻塞线程，G 被挂在 poller 里睡，M 完全空闲、转身就能从 runq 领下一个 G。
+
+`time.Sleep` 同理——G 被 timer 挂起，M 归还空闲池。想复现"M 暴涨"，必须用真正阻塞的系统调用，`flock` 是最顺手的一个。
+
+### 输出列与代码字段的对应
+
+`main.go` 的 snapshot（快照）结构产出输出表的每一列：
 
 | 字段 | 含义 | 为什么重要 |
 |---|---|---|
@@ -76,48 +117,32 @@ G 调用 `syscall.Flock` 后进入 `_Gsyscall` 状态，M 带着它一起陷入�
 | `threadDiff` | `threads - baseline` | 可观测的"因阻塞新建"信号 |
 | `waiting` | 仍卡在 `flock` 上的 worker 数 | 与 threadDiff 同峰同落，构成因果对照 |
 
-坑清单：
+## Pitfalls & Q&A
 
-- **`threadcreate` 是累计值**：`Count()` 给出进程开跑以来创建过的线程总数，不是"现在活着多少"；必须减掉基线（本机那次是 5，含 main、sysmon、GC 等后台线程）才得到"因阻塞新建"的差值，且基线本身随平台浮动，别背常数
-- **`time.Sleep` 和网络 I/O 都不是好教材**：Sleep 会 park G 但把 M 放回池子，网络走 netpoller——都让 M 数不涨；必须用真正阻塞的系统调用，`flock` 最方便
-- **BSD flock 的 fd 语义**：macOS 上同一进程两个独立 `open` 的描述符会在同一 inode 上互斥，这才让"主协程锁死 + 8 worker 抢"成立；用同一 fd 重复 `flock` 只会无害升级锁，永远不阻塞
-- **worker 里的 EINTR 分支不能省**：`flock` 可能被信号打断返回 `EINTR`，程序里要重试而不是当错误放弃，否则 8 个 worker 会提前退场、阻塞期采不到 8
-- **Go 字符串字面量里别嵌裸英文 `"`**：它就是字符串边界，会把字符串劈成两半报语法错误；中文语境用「」或转义 `\"`
+### 踩坑清单
 
-## 6. 文件结构
+- **`threadcreate` 是累计值**：把 `Count()` 当"当前存活线程数"读，基线就算错了
+  - 原因：它统计进程开跑以来创建过的线程总数（本机那次基线 5，含 main、sysmon、GC 等后台线程）
+  - 解法：用"当前采样 − 基线"的差值说话；基线随平台浮动，别背常数
+- **`time.Sleep` 和网络 I/O 复现不了**：对照组里 M 纹丝不动，实验得不到现象
+  - 原因：Sleep 挂起 G 却把 M 放回池子；网络走 netpoller（机制见上文对照组一节）
+  - 解法：改用真正阻塞的系统调用，`flock` 最方便
+- **同一 fd 重复 `flock` 永不阻塞**：想制造争锁，却一次都没卡住
+  - 原因：macOS 上同一进程两个独立 `open` 的描述符才会在同一 inode（文件的底层标识）上互斥；同一 fd 重复 `flock` 只会无害升级锁
+  - 解法：主协程与 worker 各自 `open`，"主协程锁死 + 8 worker 抢"才成立
+- **worker 里的 EINTR 分支不能省**：worker 提前退场，阻塞期采不满 8
+  - 原因：`flock` 可能被信号打断而返回 `EINTR`（错误码，表示调用被信号中断）
+  - 解法：收到 EINTR 就重试，不当错误放弃；信号机制见 [20_signal](../20_signal/)
+- **Go 字符串字面量里别嵌裸英文 `"`**：字符串被劈成两半，报语法错误
+  - 原因：英文双引号本身就是 Go 字符串的边界
+  - 解法：中文语境用「」或转义 `\"`
 
-```text
-internals/19_syscall/
-├── README.md                      # 本文件：原理 + 运行指引 + 深入要点
-├── main.go                        # 主教材：8 worker 抢 flock，五阶段快照（-json 输出）
-├── viz.py                         # 数据图：go run main.go -json → 两张 PNG 进 images/
-└── images/
-    ├── syscall.sequence.json      # 图源：M 蹲守/P 移交/取回或休眠时序（Typed JSON IR）
-    ├── syscall.html               # 交互版：可缩放/高亮消息的自包含页面
-    ├── syscall.svg                # README 内嵌双主题矢量图
-    ├── syscall_threads.png        # 数据图：各阶段 G 数 / 累计线程数曲线
-    └── syscall_waiting.png        # 数据图：卡锁 worker 数与新增线程数对照
-```
+### 深入问答
 
-## 7. 深入要点
+**Q：`GOMAXPROCS` 限制的到底是线程数吗？**
+A：不是。它限制的是 P 的数量，即同时执行 Go 代码的并行度；本实验 `GOMAXPROCS=2` 却实测到 11 个线程。移交细节见上文 handoff 一节。
 
-**Q：GOMAXPROCS 限制的到底是线程数吗？**
-A：不是。它限制的是 P 的数量，即同时执行 Go 代码的并行度。G 阻塞在真实 syscall 上时 M 会被扣在内核里，P 被移交后新建/唤醒的 M 都不计入 P——本实验 GOMAXPROCS=2 却实测到 11 个线程。
+**Q："百万并发连接"的 Go 服务，线程数为什么不涨？**
+A：网络 I/O 是非阻塞 fd + netpoller：G 睡在 poller 里，M 随时可跑别的 G。
 
-**Q：G 进入阻塞 syscall 后，runtime 怎么处理它占着的 P？**
-A：sysmon 周期巡检发现 P 停在 syscall 里太久，就 handoff：把 P 收走，优先唤醒空闲 M，空闲池没货就新建 OS 线程，让 P 继续跑 runq 里的其他 G。原 M 独自留在内核里等 syscall 返回。
-
-**Q：syscall 返回后，那个"迟到"的 M 去哪了？**
-A：`exitsyscall` 先走快速路径 `pidleget` 尝试取回一个空闲 P，取到就接着跑 G；取不到就把 G 放回全局队列、自己 `stopm` 休眠进空闲 M 池。M 基本不被销毁，所以实测释放锁后线程数停在峰值 11 不回落。
-
-**Q：为什么"百万并发连接"的 Go 服务线程数却不涨？**
-A：因为网络 I/O 是非阻塞 fd + netpoller（kqueue/epoll）：G 睡在 poller 里，M 不蹲守、随时可以跑别的 G。线程暴涨只发生在真实阻塞 syscall 上（文件 I/O、`flock`、部分 cgo/DB 原生调用）。排查信号：GOMAXPROCS 不变、线程数持续上涨 → 有人在打真 syscall。
-
-**Q：怎么用程序证明上面这些？`threadcreate` 的 Count 是当前线程数吗？**
-A：不是，它是进程开跑以来**累计创建**的线程数。要用"当前采样 − 基线"的差值说话：本实验 baseline=5、blocked-8 时 11，差值 +6；且差值不恒等于阻塞 worker 数 8，因为调度器会先复用空闲池里的线程。
-
-## 8. 总结
-
-阻塞 syscall 的全部后果都能从"M 与 P 人票分离"推出来：M 蹲内核 → P 被 handoff 给空闲/新建 M → 线程数冲出 GOMAXPROCS → 返回后取回 P 否则休眠入池（峰值保留）。记住验证方法——`go run main.go` 看五个阶段的 G/M 计数，比背结论可靠得多。
-
-下一篇 [20_signal](../20_signal/) 看进程另一类"外部事件"：panic 沿 defer 链的执行序与 recover 的抢救边界，以及 SIGTERM 如何被 os/signal 送进 channel 驱动优雅退出。
+反过来把这条当排查信号——`GOMAXPROCS` 不变而线程数持续上涨，说明有人在打真实阻塞 syscall（文件 I/O、`flock`、部分 cgo（Go 调 C 代码的机制）/DB 原生调用）。

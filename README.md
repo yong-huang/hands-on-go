@@ -1,8 +1,9 @@
 # hands-on-go：用 80 个能真实跑通的实验，吃透 Go 底层与并发模式
 
-不背概念，动手看真相。每个实验都是**一个可运行的 Go 程序 + 一份编号章节的 README + 可交互的架构图**：
-clone 下来 → 每个实验 `go run` 即跑 → 对照 README 与图，亲眼验证每一个结论。所有实验只用标准库、
-不依赖外部服务，每张图都由图源 JSON（Typed IR）生成并通过质量门禁，README 里的结论都有对应的验证命令。
+不背概念，动手看真相。每个实验都是**一个可运行的 Go 程序 + 一份六段式技术博客 README**（
+Background → What → When to Use → Quick Start → How It Works → Pitfalls & Q&A）：
+clone 下来 → 每个实验 `go run` 即跑 → 对照 README 里的真实输出，亲眼验证每一个结论。所有实验只用
+标准库、不依赖外部服务，README 里的结论都有对应的验证命令。
 
 ## 两条学习线
 
@@ -16,24 +17,21 @@ clone 下来 → 每个实验 `go run` 即跑 → 对照 README 与图，亲眼�
 
 ```text
 NN_topic/
-├── README.md          # 主教材：8 个编号章节（为什么 → 一图看懂 → 快速开始 → 核心概念 → 坑清单 → 文件结构 → 深入要点 → 总结）
+├── README.md          # 主教材：六段式（Background → What → When to Use → Quick Start → How It Works → Pitfalls & Q&A）
 ├── main.go / xxx.go   # 演示程序：每一步"在看什么"都有注释，部分支持 -json 输出状态快照
 ├── viz.py             # （仅数据实验）从 -json 快照绘制实测数据图，输出到 images/
-└── images/
-    ├── xxx.<type>.json  # 图源：Typed JSON IR（架构/流程/时序/数据流/状态机）
-    ├── xxx.html         # 交互版：自包含单文件，可缩放、高亮连线、切换明暗主题
-    └── xxx.svg          # README 内嵌的双主题矢量图
+└── images/            # 补充图（README 不内嵌）：图源 JSON、交互 HTML、SVG/PNG，可本地打开
 ```
 
-> 🌐 交互图支持 **GitHub Pages 在线打开**（开启 Pages 后形如
-> `https://<user>.github.io/<repo>/internals/01_slices/images/sharing.html`，各 README 内有直达链接），
-> 也可直接本地双击对应 `images/*.html` 打开。
+> 🌐 交互图为补充材料（README 不再内嵌直达链接）：本地双击对应 `images/*.html` 即可打开；
+> 开启 GitHub Pages 后也可在线访问，形如 `https://<user>.github.io/<repo>/internals/01_slices/images/sharing.html`。
 
 ## 新增实验
 
-想给系列加一篇？在对应线（internals/patterns）末尾按 `NN_短名` 追加目录：
-README 用与现有实验相同的 8 节编号结构，机制图在 `images/` 放图源 JSON + 交互 HTML + SVG 三件套，
-实测数据图用 matplotlib 从 `-json` 快照绘制到 `images/`，最后在本文件实验表加一行。
+想给系列加一篇？在对应线（internals/patterns/concepts）末尾按 `NN_短名` 追加目录：
+README 用与现有实验相同的六段式结构（Background → What → When to Use → Quick Start → How It Works →
+Pitfalls & Q&A），真实输出块逐字摘自程序运行结果；可选地用 matplotlib 从 `-json` 快照绘制数据图到
+`images/`，最后在本文件实验表加一行。
 配套的学习清单与规划见 [docs/](docs/)（go_internals / go_patterns）。
 
 ## 环境要求
@@ -145,13 +143,14 @@ README 用与现有实验相同的 8 节编号结构，机制图在 `images/` �
 2. **并发原语**（internals 07→12，再 18→19）：goroutine 栈、锁/原子/WaitGroup/Pool/Once、GMP 与 syscall
 3. **内存与运行时**（internals 13→17、20→21、30）：逃逸、分配器、GC、对齐、信号与 CGO，最后手写迷你运行时自检
 4. **工程化与性能**（internals 22→29）：pprof/trace/inline/defer/reflect/泄漏检测，学会用工具说话
-5. **手写组件**（patterns 01→20）：每篇亲手实现，写完对照 README 的架构图复盘复杂度与并发安全
+5. **手写组件**（patterns 01→20）：每篇亲手实现，写完对照 README 的坑清单与 Q&A 复盘复杂度与并发安全
 6. **语言概念**（concepts 01→30）：按 6 个阶段顺序过一遍——基础语法、goroutine、channel、并发模式、错误处理、反射；与 internals 的同名主题（如 mutex、defer、reflect）互为"用法 ↔ 原理"对照
 
 建议顺序：concepts 打底，internals 1~4 段与 patterns 穿插对照；每个实验都动手 `go run`，别只看图。
 
-## 图三件套与质量门禁
+## images/ 补充图与质量门禁
 
-所有架构/流程/时序图由图源 JSON 生成（作者写语义，工具管布局）：showcase 质量门禁 9 项全过
-（标签净空、无穿越、可读性等）→ 交互页四视口零溢出 → 导出双主题 SVG → 像素级居中校正。
-数据类图（基准柱状图、内存曲线）保留 matplotlib 从 `-json` 快照实测绘制，图里的数值全部来自真实程序输出。
+各实验 `images/` 目录保留了此前生成的架构/流程/时序图（图源 JSON + 交互 HTML + 双主题 SVG，
+由工具从图源生成并通过质量门禁），以及数据类图（基准柱状图、内存曲线，matplotlib 从 `-json`
+快照实测绘制，数值全部来自真实程序输出）。README 正文不再内嵌这些图；需要可视化时按上文
+方式本地打开，或运行实验目录的 `viz.py` 重新生成数据图。
