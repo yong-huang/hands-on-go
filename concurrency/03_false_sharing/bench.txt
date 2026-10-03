@@ -1,0 +1,36 @@
+# 项目 3 基准入档：无填充 vs 64 字节填充
+#
+# 文档化命令（8 goroutine：GOMAXPROCS=8 时 b.RunParallel 恰开 8 个 worker，
+# 各自热写自己的计数器；-run '^$' 跳过单元测试）：
+#
+#   GOMAXPROCS=8 go test -bench . -run '^$' -benchtime 2s ./03_false_sharing/
+#
+# 第 1 次：
+GOMAXPROCS=8 go test -bench . -run '^$' -benchtime 2s ./03_false_sharing/
+goos: darwin
+goarch: arm64
+pkg: concurrency/03_false_sharing
+cpu: Apple M5 Pro
+BenchmarkCountShared-8     	368561710	         6.364 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCountPadded-8     	1000000000	         0.3314 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCountShared1P-8   	1000000000	         0.5673 ns/op	       0 B/op	       0 allocs/op
+PASS
+ok  	concurrency/03_false_sharing	4.391s
+
+# 第 2 次（稳定性确认）：
+GOMAXPROCS=8 go test -bench . -run '^$' -benchtime 2s ./03_false_sharing/
+goos: darwin
+goarch: arm64
+pkg: concurrency/03_false_sharing
+cpu: Apple M5 Pro
+BenchmarkCountShared-8     	370717417	         6.376 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCountPadded-8     	1000000000	         0.3332 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCountShared1P-8   	1000000000	         0.5513 ns/op	       0 B/op	       0 allocs/op
+PASS
+ok  	concurrency/03_false_sharing	4.198s
+
+# 结论：两次运行填充版吞吐分别为 6.364/0.3314=19.2 倍与 6.376/0.3332=19.1 倍，
+# 远高于 2 倍验收线，且数字可复现。
+# 说明：填充版 0.33 ns/op 是 8 worker 的摊薄值（单 worker 实际约 2.6ns），
+# 并未达到单核基线 0.56ns 的 8 倍线性扩展——多 cluster 的缓存子系统带宽是上限，
+# 与 README 的分析一致。单核原子自增 0.56ns/op 曾用独立计时程序交叉验证为真实值。

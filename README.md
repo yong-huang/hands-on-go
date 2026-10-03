@@ -1,24 +1,26 @@
-# hands-on-go：用 80 个能真实跑通的实验，吃透 Go 底层与并发模式
+# hands-on-go：用 103 个能真实跑通的实验，吃透 Go 底层与并发模式
 
 不背概念，动手看真相。每个实验都是**一个可运行的 Go 程序 + 一份六段式技术博客 README**（
 Background → What → When to Use → Quick Start → How It Works → Pitfalls & Q&A）：
-clone 下来 → 每个实验 `go run` 即跑 → 对照 README 里的真实输出，亲眼验证每一个结论。所有实验只用
-标准库、不依赖外部服务，README 里的结论都有对应的验证命令。
+clone 下来 → 每个实验 `go run` 即跑 → 对照 README 里的真实输出，亲眼验证每一个结论。
+internals/patterns/concepts 三条线只用标准库；concurrency 线附 `-race` 测试与 goleak 泄漏门禁。
 
-## 两条学习线
+## 四条学习线
 
 | 目录 | 定位 | 内容 |
 |---|---|---|
 | [`internals/`](internals/) | **语言底层**（30 篇） | slice/map/channel 的内存布局、GMP 调度、分配器与 GC、pprof/trace 工具链 |
 | [`patterns/`](patterns/) | **手写组件与并发模式**（20 篇） | LRU/LFU、限流器、Worker Pool、分布式锁、迷你 Redis 等常用组件的完整实现 |
 | [`concepts/`](concepts/) | **语言概念**（30 篇） | 变量与类型、流程控制、goroutine/channel/select、错误处理、context、反射——语言特性逐个击破 |
+| [`concurrency/`](concurrency/) | **并发原理深水区**（23 篇） | happens-before 实证、sync 源码级复刻、GMP 调度深水区、channel 运行时、取消传播、并发度量——每个实验附 `-race` 测试 |
 
-每个实验目录内：
+每个实验目录内（concurrency 系列为 `main.go + 测试 + README`，无 viz.py/images）：
 
 ```text
 NN_topic/
 ├── README.md          # 主教材：六段式（Background → What → When to Use → Quick Start → How It Works → Pitfalls & Q&A）
 ├── main.go / xxx.go   # 演示程序：每一步"在看什么"都有注释，部分支持 -json 输出状态快照
+├── *_test.go          # （仅 concurrency 系列）-race 可过的并发测试，验收清单的可执行化
 ├── viz.py             # （仅数据实验）从 -json 快照绘制实测数据图，输出到 images/
 └── images/            # 补充图（README 不内嵌）：图源 JSON、交互 HTML、SVG/PNG，可本地打开
 ```
@@ -28,15 +30,16 @@ NN_topic/
 
 ## 新增实验
 
-想给系列加一篇？在对应线（internals/patterns/concepts）末尾按 `NN_短名` 追加目录：
+想给系列加一篇？在对应线（internals/patterns/concepts/concurrency）末尾按 `NN_短名` 追加目录：
 README 用与现有实验相同的六段式结构（Background → What → When to Use → Quick Start → How It Works →
 Pitfalls & Q&A），真实输出块逐字摘自程序运行结果；可选地用 matplotlib 从 `-json` 快照绘制数据图到
 `images/`，最后在本文件实验表加一行。
-配套的学习清单与规划见 [docs/](docs/)（go_internals / go_patterns）。
+配套的学习清单与规划见 [docs/](docs/)（go_internals / go_patterns / go_concepts / go_concurrency）。
 
 ## 环境要求
 
-- Go ≥ 1.21（实验在 go1.26 实测通过）；纯标准库，无第三方依赖
+- Go ≥ 1.21（实验在 go1.26 实测通过）；internals/patterns/concepts 纯标准库，无第三方依赖
+- concurrency 系列：独立 Go 模块（`concurrency/go.mod`），依赖 go.uber.org/goleak 与 golang.org/x/sync（对照用），测试统一 `go test -race ./NN_xxx/`
 - 可选：python3 + matplotlib（仅重新生成实测数据图时需要；仓库已含生成好的 PNG）
 - 操作系统不限；涉及地址/内存布局的输出数值每次运行都会变，不变的是关系与结论
 
@@ -137,6 +140,34 @@ Pitfalls & Q&A），真实输出块逐字摘自程序运行结果；可选地用
 | 29 | [reflect_call](concepts/29_reflect_call/) | 反射创建实例与动态调用 |
 | 30 | [custom_marshal](concepts/30_custom_marshal/) | 自定义 JSON 序列化 |
 
+### concurrency · 并发原理深水区（23 篇，附 -race 测试）
+
+| # | 实验 | 一句话 |
+|---|---|---|
+| 01 | [hb_litmus](concurrency/01_hb_litmus/) | happens-before 探针：litmus 实证重排与同步的可见性承诺 |
+| 02 | [atomic_orders](concurrency/02_atomic_orders/) | atomic 语义层级：SeqCst 与 Acquire/Release 配对 |
+| 03 | [false_sharing](concurrency/03_false_sharing/) | 伪共享实测：缓存行填充拉开数量级差距 |
+| 04 | [race_detector](concurrency/04_race_detector/) | race 检测器：vector clock、漏报边界与开销实测 |
+| 05 | [mini_mutex](concurrency/05_mini_mutex/) | 盲写 mini Mutex：双模式状态机并对照源码 |
+| 06 | [mini_rwmutex](concurrency/06_mini_rwmutex/) | mini RWMutex：readerCount 负数协议与写优先 |
+| 07 | [mini_cond](concurrency/07_mini_cond/) | mini Cond：通知列表与丢失唤醒反例 |
+| 08 | [syncmap_internals](concurrency/08_syncmap_internals/) | sync.Map 源码级：read/dirty 协议与 HashTrieMap 现状 |
+| 09 | [singleflight](concurrency/09_singleflight/) | singleflight 手写：请求合并、panic 传播与 x/sync 对照 |
+| 10 | [g_trace](concurrency/10_g_trace/) | G 状态机追踪：go tool trace 解读 G 的一生 |
+| 11 | [work_stealing](concurrency/11_work_stealing/) | work-stealing 实证：runnext、本地队列与全局队列分工 |
+| 12 | [preemption](concurrency/12_preemption/) | 抢占演进：协作式到信号抢占的 10ms 边界 |
+| 13 | [netpoller_c10k](concurrency/13_netpoller_c10k/) | netpoller 与 C10K：万级连接的 park/unpark 与内存账 |
+| 14 | [sched_latency](concurrency/14_sched_latency/) | 调度延迟：runtime/metrics 的 p50/p99 双口径测量 |
+| 15 | [mini_channel](concurrency/15_mini_channel/) | mini channel：锁+环形缓冲+等待队列的运行时复刻 |
+| 16 | [select_fairness](concurrency/16_select_fairness/) | select 均匀性：selectgo 随机轮询与两阶段锁排序 |
+| 17 | [generics_prims](concurrency/17_generics_prims/) | 泛型并发原语库：Chan/Pipe/Merge/Split |
+| 18 | [mini_context](concurrency/18_mini_context/) | mini context：cancel 树传播与超时级联 |
+| 19 | [errgroup](concurrency/19_errgroup/) | errgroup 手写：首错取消、SetLimit 与结构化并发 |
+| 20 | [goleak_gate](concurrency/20_goleak_gate/) | goleak 泄漏门禁：goroutine 快照 diff 挂上测试 |
+| 21 | [counter_bench](concurrency/21_counter_bench/) | 计数器三路基准：mutex/atomic/分片填充五档矩阵 |
+| 22 | [load_shapes](concurrency/22_load_shapes/) | 压测方法论：三种负载形状与并发组件验收清单 |
+| 23 | [task_framework](concurrency/23_task_framework/) | 收官框架：守恒律验收的有界并发任务框架 |
+
 ## 建议学习路线
 
 1. **数据结构底层**（internals 01→06）：slice/map/channel/string/interface 的内存真相，后续一切的地基
@@ -145,8 +176,9 @@ Pitfalls & Q&A），真实输出块逐字摘自程序运行结果；可选地用
 4. **工程化与性能**（internals 22→29）：pprof/trace/inline/defer/reflect/泄漏检测，学会用工具说话
 5. **手写组件**（patterns 01→20）：每篇亲手实现，写完对照 README 的坑清单与 Q&A 复盘复杂度与并发安全
 6. **语言概念**（concepts 01→30）：按 6 个阶段顺序过一遍——基础语法、goroutine、channel、并发模式、错误处理、反射；与 internals 的同名主题（如 mutex、defer、reflect）互为"用法 ↔ 原理"对照
+7. **并发原理深水区**（concurrency 01→23）：内存模型 → sync 源码级复刻 → GMP 调度 → channel 运行时 → 取消传播 → 度量与收官框架；适合已做完 internals 07~19 与 concepts 并发篇后进阶，每个实验先跑 `go test -race` 再读 README
 
-建议顺序：concepts 打底，internals 1~4 段与 patterns 穿插对照；每个实验都动手 `go run`，别只看图。
+建议顺序：concepts 打底，internals 1~4 段与 patterns 穿插对照，最后 concurrency 深水区收束；每个实验都动手 `go run`，别只看图。
 
 ## images/ 补充图与质量门禁
 

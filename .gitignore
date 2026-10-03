@@ -4,3 +4,4 @@
 *.pprof
 main
 consistent_hash
+lru_cache
