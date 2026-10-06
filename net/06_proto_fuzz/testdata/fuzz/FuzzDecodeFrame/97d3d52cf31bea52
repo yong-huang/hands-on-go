@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("NETC\x01\x02\x00\x00|r\x8e\x1b0")

@@ -1,0 +1,15 @@
+goos: darwin
+goarch: arm64
+pkg: gonet/02_sticky_frames
+cpu: Apple M5 Pro
+BenchmarkFixed-18           	138018462	        17.05 ns/op	3752777.92 MB/s	      64 B/op	       1 allocs/op
+BenchmarkFixed-18           	138080518	        17.25 ns/op	3710046.70 MB/s	      64 B/op	       1 allocs/op
+BenchmarkFixed-18           	136115888	        18.23 ns/op	3510585.38 MB/s	      64 B/op	       1 allocs/op
+BenchmarkDelimiter-18       	15407059	       156.7 ns/op	395785.95 MB/s	     120 B/op	       4 allocs/op
+BenchmarkDelimiter-18       	15040557	       158.0 ns/op	392465.10 MB/s	     120 B/op	       4 allocs/op
+BenchmarkDelimiter-18       	15218954	       158.5 ns/op	391143.92 MB/s	     120 B/op	       4 allocs/op
+BenchmarkLengthPrefix-18    	89434741	        26.84 ns/op	2346867.85 MB/s	      66 B/op	       2 allocs/op
+BenchmarkLengthPrefix-18    	92236740	        26.71 ns/op	2358736.41 MB/s	      66 B/op	       2 allocs/op
+BenchmarkLengthPrefix-18    	87131864	        26.66 ns/op	2363004.55 MB/s	      66 B/op	       2 allocs/op
+PASS
+ok  	gonet/02_sticky_frames	28.165s

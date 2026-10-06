@@ -1,0 +1,38 @@
+// streamy.proto —— 项目 19 的 gRPC 服务：四种流式各一个方法。
+//
+// 生成命令（protoc 29.3 + protoc-gen-go v1.36.12 + protoc-gen-go-grpc）：
+//
+//	cd net/19_grpc_streams && protoc \
+//	  --go_out=. --go_opt=paths=source_relative \
+//	  --go-grpc_out=. --go-grpc_opt=paths=source_relative \
+//	  streamy.proto
+syntax = "proto3";
+
+package streamy;
+
+option go_package = "gonet/19_grpc_streams;main";
+
+// FourStreams：四种 RPC 形态各一个方法。
+service FourStreams {
+  // Unary：一请求一响应（传统形态）。
+  rpc Echo(Request) returns (Response);
+
+  // ServerStreaming：一请求多响应（服务端推流）。
+  rpc Countdown(Request) returns (stream Response);
+
+  // ClientStreaming：多请求一响应（客户端攒批）。
+  rpc Sum(stream Request) returns (Response);
+
+  // BidiStreaming：双向流（实时对话）。
+  rpc Chat(stream Request) returns (stream Response);
+}
+
+message Request {
+  int64 n = 1;      // Countdown：倒数起点；Sum/Chat：数值载荷
+  string note = 2;  // 透传备注
+}
+
+message Response {
+  int64 n = 1;
+  string note = 2;
+}

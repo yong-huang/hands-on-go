@@ -1,0 +1,24 @@
+goos: darwin
+goarch: arm64
+pkg: gonet/07_text_vs_binary
+cpu: Apple M5 Pro
+BenchmarkText-18      	   67990	     34639 ns/op	     57743 ops/s
+BenchmarkText-18      	   70396	     34744 ns/op	     57569 ops/s
+BenchmarkText-18      	   68851	     34713 ns/op	     57620 ops/s
+BenchmarkBinary-18    	   69409	     35517 ns/op	     56315 ops/s
+BenchmarkBinary-18    	   66562	     35792 ns/op	     55883 ops/s
+BenchmarkBinary-18    	   62367	     35476 ns/op	     56382 ops/s
+PASS
+ok  	gonet/07_text_vs_binary	16.624s
+goos: darwin
+goarch: arm64
+pkg: gonet/07_text_vs_binary
+cpu: Apple M5 Pro
+BenchmarkParseOnly/text-18         	41248807	        87.47 ns/op
+BenchmarkParseOnly/text-18         	43481914	        86.61 ns/op
+BenchmarkParseOnly/text-18         	43525921	        87.53 ns/op
+BenchmarkParseOnly/binary-18       	37898060	        97.84 ns/op
+BenchmarkParseOnly/binary-18       	38157874	        98.45 ns/op
+BenchmarkParseOnly/binary-18       	30597013	        98.46 ns/op
+PASS
+ok  	gonet/07_text_vs_binary	22.763s

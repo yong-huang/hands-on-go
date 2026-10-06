@@ -1,0 +1,23 @@
+// message.proto —— 项目 18 的对拍基准消息。
+//
+// 生成命令（本机已装 protoc 29.3 与 protoc-gen-go）：
+//
+//	cd net/18_protobuf_wire && protoc --go_out=. --go_opt=paths=source_relative message.proto
+//
+// 手写编解码器（main.go 的 Handwritten）与本消息逐字段对应。
+syntax = "proto3";
+
+package demo;
+
+option go_package = "gonet/18_protobuf_wire;main";
+
+message Inner {
+  sint32 x = 1; // zigzag
+}
+
+message TestMessage {
+  sint64 a = 1; // zigzag：负数友好
+  uint64 b = 2; // varint
+  string s = 3; // 长度前缀
+  Inner inner = 4; // 嵌套消息（长度前缀）
+}

@@ -1,0 +1,15 @@
+fuzz: elapsed: 0s, gathering baseline coverage: 0/15 completed
+fuzz: elapsed: 0s, gathering baseline coverage: 15/15 completed, now fuzzing with 18 workers
+fuzz: elapsed: 3s, execs: 3459235 (1152900/sec), new interesting: 2 (total: 17)
+fuzz: elapsed: 6s, execs: 6894049 (1145048/sec), new interesting: 2 (total: 17)
+fuzz: elapsed: 9s, execs: 10308024 (1138045/sec), new interesting: 2 (total: 17)
+fuzz: elapsed: 12s, execs: 13638734 (1110226/sec), new interesting: 2 (total: 17)
+fuzz: elapsed: 15s, execs: 17112093 (1157714/sec), new interesting: 2 (total: 17)
+fuzz: elapsed: 18s, execs: 20430791 (1106248/sec), new interesting: 2 (total: 17)
+fuzz: elapsed: 21s, execs: 23722074 (1097081/sec), new interesting: 2 (total: 17)
+fuzz: elapsed: 24s, execs: 26987248 (1088433/sec), new interesting: 2 (total: 17)
+fuzz: elapsed: 27s, execs: 30284712 (1099092/sec), new interesting: 2 (total: 17)
+fuzz: elapsed: 30s, execs: 33434540 (1050016/sec), new interesting: 2 (total: 17)
+fuzz: elapsed: 30s, execs: 33434540 (0/sec), new interesting: 2 (total: 17)
+PASS
+ok  	gonet/06_proto_fuzz	30.505s
