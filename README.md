@@ -1,11 +1,12 @@
-# hands-on-go：用 103 个能真实跑通的实验，吃透 Go 底层与并发模式
+# hands-on-go：用 144 个能真实跑通的实验，吃透 Go 底层、并发与 Web 服务
 
 不背概念，动手看真相。每个实验都是**一个可运行的 Go 程序 + 一份六段式技术博客 README**（
 Background → What → When to Use → Quick Start → How It Works → Pitfalls & Q&A）：
 clone 下来 → 每个实验 `go run` 即跑 → 对照 README 里的真实输出，亲眼验证每一个结论。
-internals/patterns/concepts 三条线只用标准库；concurrency 线附 `-race` 测试与 goleak 泄漏门禁。
+internals/patterns/concepts 三条线只用标准库；concurrency 线附 `-race` 测试与 goleak 泄漏门禁；
+net 线聚焦协议与传输（独立模块，-race + goleak）；web 线用真实依赖共同生长出书签服务 marklet。
 
-## 四条学习线
+## 六条学习线
 
 | 目录 | 定位 | 内容 |
 |---|---|---|
@@ -13,6 +14,8 @@ internals/patterns/concepts 三条线只用标准库；concurrency 线附 `-race
 | [`patterns/`](patterns/) | **手写组件与并发模式**（20 篇） | LRU/LFU、限流器、Worker Pool、分布式锁、迷你 Redis 等常用组件的完整实现 |
 | [`concepts/`](concepts/) | **语言概念**（30 篇） | 变量与类型、流程控制、goroutine/channel/select、错误处理、context、反射——语言特性逐个击破 |
 | [`concurrency/`](concurrency/) | **并发原理深水区**（23 篇） | happens-before 实证、sync 源码级复刻、GMP 调度深水区、channel 运行时、取消传播、并发度量——每个实验附 `-race` 测试 |
+| [`net/`](net/) | **网络编程**（21 篇） | TCP/UDP 语义、协议设计与 fuzz、HTTP 深水区、TLS/PKI、gRPC/WebSocket——附 `-race` 与 goleak |
+| [`web/`](web/) | **Web 服务实战**（20 篇 ✅） | marklet 书签服务共同生长：SQLite→PG 持久层、事务、连接池、缓存、认证、可观测、异步、Docker 交付 |
 
 每个实验目录内（concurrency 系列为 `main.go + 测试 + README`，无 viz.py/images）：
 
@@ -34,14 +37,19 @@ NN_topic/
 README 用与现有实验相同的六段式结构（Background → What → When to Use → Quick Start → How It Works →
 Pitfalls & Q&A），真实输出块逐字摘自程序运行结果；可选地用 matplotlib 从 `-json` 快照绘制数据图到
 `images/`，最后在本文件实验表加一行。
-配套的学习清单与规划见 [docs/](docs/)（go_internals / go_patterns / go_concepts / go_concurrency）。
+配套的学习清单与规划见 [docs/](docs/)（go_internals / go_patterns / go_concepts / go_concurrency /
+go_net——21/21 已完成 / go_web——marklet 服务线，20/20 已完成）。
 
 ## 环境要求
 
 - Go ≥ 1.21（实验在 go1.26 实测通过）；internals/patterns/concepts 纯标准库，无第三方依赖
 - concurrency 系列：独立 Go 模块（`concurrency/go.mod`），依赖 go.uber.org/goleak 与 golang.org/x/sync（对照用），测试统一 `go test -race ./NN_xxx/`
+- net 系列：独立 Go 模块（`net/go.mod`），依赖 grpc/protobuf/goleak，测试统一 `go test -race ./NN_xxx/`
+- web 系列：独立 Go 模块（`web/go.mod`），依赖 modernc.org/sqlite（纯 Go 驱动）与 goleak；
+  `-race` 测试需 C 编译器（macOS 自带）；服务端口纪律 127.0.0.1:19610~19639，
+  后续阶段的 PostgreSQL/Redis 走 Docker（postgres:15-alpine / redis:7-alpine）
 - 可选：python3 + matplotlib（仅重新生成实测数据图时需要；仓库已含生成好的 PNG）
-- 操作系统不限；涉及地址/内存布局的输出数值每次运行都会变，不变的是关系与结论
+- 操作系统不限；涉及地址/内存布局与性能计时的输出数值每次运行都会变，不变的是关系与结论
 
 ## 实验总目录
 
@@ -168,6 +176,59 @@ Pitfalls & Q&A），真实输出块逐字摘自程序运行结果；可选地用
 | 22 | [load_shapes](concurrency/22_load_shapes/) | 压测方法论：三种负载形状与并发组件验收清单 |
 | 23 | [task_framework](concurrency/23_task_framework/) | 收官框架：守恒律验收的有界并发任务框架 |
 
+### net · 网络编程（21 篇，附 -race 测试与 goleak 门禁）
+
+| # | 实验 | 一句话 |
+|---|---|---|
+| 01 | [tcp_lifecycle](net/01_tcp_lifecycle/) | TCP 状态机的每一跳对到代码行 |
+| 02 | [sticky_frames](net/02_sticky_frames/) | 粘包拆包：TCP 是字节流不是消息流 |
+| 03 | [udp_datagram](net/03_udp_datagram/) | UDP：有边界，但不可靠、不保序 |
+| 04 | [stop_wait](net/04_stop_wait/) | 在 UDP 上手写停等协议 |
+| 05 | [binary_protocol](net/05_binary_protocol/) | 魔数、版本、长度与 CRC 的四道闸 |
+| 06 | [proto_fuzz](net/06_proto_fuzz/) | 畸形包矩阵与 fuzz 靶场 |
+| 07 | [text_vs_binary](net/07_text_vs_binary/) | 文本协议的调试性 vs 二进制的解析开销 |
+| 08 | [mux_pipeline](net/08_mux_pipeline/) | 单连接多路复用与队头阻塞量化 |
+| 09 | [http_server_internals](net/09_http_server_internals/) | net/http 超时参数、慢攻击与连接状态机 |
+| 10 | [transport_pool](net/10_transport_pool/) | http.Transport 连接池与连接泄漏 |
+| 11 | [http2_mux](net/11_http2_mux/) | HTTP/2 一条连接扛住全部并发 |
+| 12 | [middleware_ctx](net/12_middleware_ctx/) | 中间件洋葱、断连感知与 panic 兜底 |
+| 13 | [reverse_proxy](net/13_reverse_proxy/) | 迷你网关：轮询、健康检查与 XFF 链 |
+| 14 | [tls_handshake](net/14_tls_handshake/) | TLS 握手观察与证书链全景 |
+| 15 | [ca_chain](net/15_ca_chain/) | 自建 CA：根、中间、叶子三级信任 |
+| 16 | [mtls](net/16_mtls/) | mTLS 双向认证 |
+| 17 | [tls_diagnostics](net/17_tls_diagnostics/) | TLS 故障诊断：四现场、双口径、决策树 |
+| 18 | [protobuf_wire](net/18_protobuf_wire/) | 手写 varint、zigzag 与 tag |
+| 19 | [grpc_streams](net/19_grpc_streams/) | gRPC 四种流式 |
+| 20 | [ws_rfc6455](net/20_ws_rfc6455/) | 手写 WebSocket：握手、帧、心跳 |
+| 21 | [mini_rpc](net/21_mini_rpc/) | 迷你 RPC 框架：协议、安全与元数据合流 |
+
+### web · Web 服务实战（marklet，规划 20 篇·已完成 4 篇）
+
+| # | 实验 | 一句话 |
+|---|---|---|
+| 01 | [skeleton](web/01_skeleton/) | 方法路由、双探针分离与 SIGTERM 优雅退出 |
+| 02 | [sqlite_store](web/02_sqlite_store/) | 版本表迁移器、WAL 并发与参数化 CRUD |
+| 03 | [conn_pool](web/03_conn_pool/) | 池三旋钮实测对照，WaitCount 对账 |
+| 04 | [tx_crud](web/04_tx_crud/) | BEGIN IMMEDIATE 防丢更新，WithTx 与 CRUD 接线 |
+| 05 | [pg_migration](web/05_pg_migration/) | 同接口换 PG 实现，方言迁移幂等 |
+| 06 | [sqlc_gen](web/06_sqlc_gen/) | SQL 即源码：生成码与手写的三层防线对照 |
+| 07 | [redis_cache](web/07_redis_cache/) | 恰好一次回源防击穿，空值缓存防穿透 |
+| 08 | [cache_consistency](web/08_cache_consistency/) | 两种坏例复现与锁内失效的零脏读 |
+| 09 | [auth_password_session](web/09_auth_password_session/) | argon2id 落库、Redis 会话与登录轮换 |
+| 10 | [jwt](web/10_jwt/) | HS256 签发验证与三个陷阱复现 |
+| 11 | [security_middleware](web/11_security_middleware/) | 安全头、Bearer、CSRF 双提交与请求体上限 |
+| 12 | [auth_wiring](web/12_auth_wiring/) | owner 过滤防 IDOR：身份贯穿到 WHERE 子句 |
+| 13 | [obs_logging](web/13_obs_logging/) | 请求 ID 贯通、slog JSON 与字段脱敏 |
+| 14 | [obs_metrics](web/14_obs_metrics/) | 手写 exposition、直方图分位数对照、pprof 隔离 |
+| 15 | [obs_tracing](web/15_obs_tracing/) | 父子 span、W3C 透传与 10% 采样 |
+| 16 | [obs_ratelimit](web/16_obs_ratelimit/) | ZSET 滑动窗口 Lua 原子限流，四件套联动 |
+| 17 | [jobs_queue](web/17_jobs_queue/) | worker 池、重试死信与 SSRF 防线 |
+| 18 | [graceful_drain](web/18_graceful_drain/) | 四阶段停机编排：50 任务零丢失可审计 |
+| 19 | [docker_deploy](web/19_docker_deploy/) | 多阶段构建 28MB 运行镜像，Compose 全家桶 |
+| 20 | [release](web/20_release/) | 五步 CI、压测基线入档与发布清单 |
+
+规划与学习路线见 [docs/go_web.md](docs/go_web.md)（20/20 已完成）。
+
 ## 建议学习路线
 
 1. **数据结构底层**（internals 01→06）：slice/map/channel/string/interface 的内存真相，后续一切的地基
@@ -177,6 +238,8 @@ Pitfalls & Q&A），真实输出块逐字摘自程序运行结果；可选地用
 5. **手写组件**（patterns 01→20）：每篇亲手实现，写完对照 README 的坑清单与 Q&A 复盘复杂度与并发安全
 6. **语言概念**（concepts 01→30）：按 6 个阶段顺序过一遍——基础语法、goroutine、channel、并发模式、错误处理、反射；与 internals 的同名主题（如 mutex、defer、reflect）互为"用法 ↔ 原理"对照
 7. **并发原理深水区**（concurrency 01→23）：内存模型 → sync 源码级复刻 → GMP 调度 → channel 运行时 → 取消传播 → 度量与收官框架；适合已做完 internals 07~19 与 concepts 并发篇后进阶，每个实验先跑 `go test -race` 再读 README
+8. **网络编程**（net 01→21）：Socket 语义 → 自定义协议与 fuzz → HTTP 深水区 → TLS/PKI → gRPC/WebSocket，收官迷你 RPC；与 web 线互为"协议传输 ↔ 有状态服务"
+9. **Web 服务实战**（web 01→20 ✅）：marklet 书签服务共同生长——骨架与 SQLite 数据层 → PostgreSQL/缓存 → 认证安全 → 可观测性 → 异步任务 → Docker 交付；每篇先 `go run .` 看完整时间线，再 `go test -race` 过验收
 
 建议顺序：concepts 打底，internals 1~4 段与 patterns 穿插对照，最后 concurrency 深水区收束；每个实验都动手 `go run`，别只看图。
 
