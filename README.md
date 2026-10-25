@@ -17,23 +17,27 @@ net 线聚焦协议与传输（独立模块，-race + goleak）；web 线用真�
 | [`net/`](net/) | **网络编程**（21 篇） | TCP/UDP 语义、协议设计与 fuzz、HTTP 深水区、TLS/PKI、gRPC/WebSocket——附 `-race` 与 goleak |
 | [`web/`](web/) | **Web 服务实战**（20 篇 ✅） | marklet 书签服务共同生长：SQLite→PG 持久层、事务、连接池、缓存、认证、可观测、异步、Docker 交付 |
 
-每个实验目录内（concurrency 系列为 `main.go + 测试 + README`，无 viz.py/images）：
+每个实验目录内（按线的差异见注）：
 
 ```text
 NN_topic/
 ├── README.md          # 主教材：六段式（Background → What → When to Use → Quick Start → How It Works → Pitfalls & Q&A）
 ├── main.go / xxx.go   # 演示程序：每一步"在看什么"都有注释，部分支持 -json 输出状态快照
-├── *_test.go          # （仅 concurrency 系列）-race 可过的并发测试，验收清单的可执行化
-├── viz.py             # （仅数据实验）从 -json 快照绘制实测数据图，输出到 images/
-└── images/            # 补充图（README 不内嵌）：图源 JSON、交互 HTML、SVG/PNG，可本地打开
+├── *_test.go          # concurrency/net/web 三线：-race 可过测试（web 另含 goleak 门禁）
+├── viz.py             # （仅 internals/patterns/concepts 的数据实验）从 -json 快照绘制实测数据图
+└── images/            # （同上三线）补充图：图源 JSON、交互 HTML、SVG/PNG，可本地打开
 ```
 
-> 🌐 交互图为补充材料（README 不再内嵌直达链接）：本地双击对应 `images/*.html` 即可打开；
-> 开启 GitHub Pages 后也可在线访问，形如 `https://<user>.github.io/<repo>/internals/01_slices/images/sharing.html`。
+> concurrency/net/web 三线为独立 Go 模块（各自 go.mod），无 viz.py/images；
+> web 线另有随实验生长的部署文件（Dockerfile、docker-compose.yml、脚本与 CI）。
+
+> 🌐 交互图为补充材料（仅 internals/patterns/concepts 三线有 images/）：本地双击对应
+> `images/*.html` 即可打开；开启 GitHub Pages 后也可在线访问，形如
+> `https://<user>.github.io/<repo>/internals/01_slices/images/sharing.html`。
 
 ## 新增实验
 
-想给系列加一篇？在对应线（internals/patterns/concepts/concurrency）末尾按 `NN_短名` 追加目录：
+想给系列加一篇？在对应线（六条线任一）末尾按 `NN_短名` 追加目录：
 README 用与现有实验相同的六段式结构（Background → What → When to Use → Quick Start → How It Works →
 Pitfalls & Q&A），真实输出块逐字摘自程序运行结果；可选地用 matplotlib 从 `-json` 快照绘制数据图到
 `images/`，最后在本文件实验表加一行。
@@ -45,9 +49,11 @@ go_net——21/21 已完成 / go_web——marklet 服务线，20/20 已完成）
 - Go ≥ 1.21（实验在 go1.26 实测通过）；internals/patterns/concepts 纯标准库，无第三方依赖
 - concurrency 系列：独立 Go 模块（`concurrency/go.mod`），依赖 go.uber.org/goleak 与 golang.org/x/sync（对照用），测试统一 `go test -race ./NN_xxx/`
 - net 系列：独立 Go 模块（`net/go.mod`），依赖 grpc/protobuf/goleak，测试统一 `go test -race ./NN_xxx/`
-- web 系列：独立 Go 模块（`web/go.mod`），依赖 modernc.org/sqlite（纯 Go 驱动）与 goleak；
-  `-race` 测试需 C 编译器（macOS 自带）；服务端口纪律 127.0.0.1:19610~19639，
-  后续阶段的 PostgreSQL/Redis 走 Docker（postgres:15-alpine / redis:7-alpine）
+- web 系列：独立 Go 模块（`web/go.mod`），依赖 modernc.org/sqlite、pgx、go-redis、
+  OTel、golang-jwt、x/crypto 与 goleak；`-race` 测试需 C 编译器（macOS 自带）；
+  服务端口纪律 127.0.0.1:19610~19639，PostgreSQL/Redis 走 Docker
+  （postgres:15-alpine / redis:7-alpine，镜像已在本地）；
+  交付实验（19）含 Dockerfile 与 docker-compose.yml，CI 门禁见 `web/20_release/scripts/ci.sh`
 - 可选：python3 + matplotlib（仅重新生成实测数据图时需要；仓库已含生成好的 PNG）
 - 操作系统不限；涉及地址/内存布局与性能计时的输出数值每次运行都会变，不变的是关系与结论
 
@@ -245,7 +251,9 @@ go_net——21/21 已完成 / go_web——marklet 服务线，20/20 已完成）
 
 ## images/ 补充图与质量门禁
 
-各实验 `images/` 目录保留了此前生成的架构/流程/时序图（图源 JSON + 交互 HTML + 双主题 SVG，
-由工具从图源生成并通过质量门禁），以及数据类图（基准柱状图、内存曲线，matplotlib 从 `-json`
-快照实测绘制，数值全部来自真实程序输出）。README 正文不再内嵌这些图；需要可视化时按上文
-方式本地打开，或运行实验目录的 `viz.py` 重新生成数据图。
+internals/patterns/concepts 三线的 `images/` 目录保留了此前生成的架构/流程/时序图
+（图源 JSON + 交互 HTML + 双主题 SVG，由工具从图源生成并通过质量门禁），以及数据类图
+（基准柱状图、内存曲线，matplotlib 从 `-json` 快照实测绘制，数值全部来自真实程序输出）。
+README 正文不再内嵌这些图；需要可视化时按上文方式本地打开，或运行实验目录的 `viz.py`
+重新生成数据图。concurrency/net/web 三线无 images/——web 线的实测数据以文字与
+代码内计数器形式入档在各篇 README。
